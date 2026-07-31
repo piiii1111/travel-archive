@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#eceae5">
+  <title>Travel Archive v1.2｜Supabase Connection</title>
+
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* v1.1.2 Journey Hero actions */
+    .hero-actions{position:absolute;right:18px;top:16px;z-index:3;display:flex;gap:8px;align-items:center}
+    .hero-actions .hero-edit{position:static}
+    .hero-actions .hero-delete{border:1px solid rgba(255,214,210,.42);color:#fff;background:rgba(126,39,34,.36);border-radius:11px;padding:8px 11px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)}
+    .hero-actions .hero-delete:hover{background:rgba(126,39,34,.55)}
+    @media(max-width:620px){.hero-actions{right:12px;top:14px;gap:6px}.hero-actions .hero-edit,.hero-actions .hero-delete{padding:7px 9px;font-size:9px}}
+
+    /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
+    .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
+    .journey-primary-tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .journey-primary-tabs .day-tab{flex:0 0 auto}
+    .day-tabs-scroll{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:thin}
+    .day-tabs-scroll .day-tab{flex:0 0 auto}
+    .review-actions{position:relative;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
+    .review-actions button{position:relative;z-index:3;pointer-events:auto;cursor:pointer}
+    @media(max-width:620px){
+      .journey-primary-tabs{position:sticky;left:0}
+      .journey-primary-tabs .day-tab{min-height:42px}
+      .day-tabs-scroll{width:100%}
+    }
+
+    /* v1.1.4: responsive Day drag feedback */
+    .day-tabs-scroll .day-tab[draggable="true"]{cursor:grab;touch-action:pan-x}
+    .day-tabs-scroll .day-tab[draggable="true"]:active{cursor:grabbing}
+    .day-tabs-scroll .day-tab.day-dragging{opacity:.42;transform:scale(.97)}
+    .day-tabs-scroll .day-tab.day-drop-target{outline:2px dashed currentColor;outline-offset:3px}
+
+    /* v1.1.5: Day modal / header / tab synchronization */
+    .field-help{display:block;margin-top:6px;font-size:11px;line-height:1.5;color:var(--muted,#777)}
+    .day-menu-panel button{width:100%;text-align:left}
+  
+    /* v1.2 Supabase authentication */
+    .auth-gate{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;padding:24px;background:rgba(236,234,229,.96);backdrop-filter:blur(14px)}
+    .auth-gate.hidden{display:none}
+    .auth-card{width:min(440px,100%);padding:28px;border:1px solid rgba(30,30,30,.12);border-radius:24px;background:#fff;box-shadow:0 24px 80px rgba(0,0,0,.12)}
+    .auth-card h2{margin:8px 0 6px;font-size:28px}.auth-card p{margin:0 0 20px;color:#6d6b66;line-height:1.7}
+    .auth-card .field{margin-bottom:12px}.auth-card input{width:100%;box-sizing:border-box}
+    .auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.auth-actions button{min-height:44px}
+    .auth-message{min-height:22px;margin-top:12px;font-size:13px;line-height:1.6;color:#6d6b66}.auth-message.error{color:#a33}
+    .db-status{position:fixed;right:16px;bottom:16px;z-index:2000;padding:9px 12px;border-radius:999px;background:#1f2420;color:#fff;font-size:11px;box-shadow:0 8px 24px rgba(0,0,0,.18)}
+    .db-status.error{background:#8d302b}.db-status.success{background:#315f43}
+  </style>
+</head>
+<body>
+<div class="auth-gate" id="authGate">
+  <section class="auth-card">
+    <div class="eyebrow">TRAVEL ARCHIVE</div>
+    <h2>登入你的旅遊檔案</h2>
+    <p>這個版本已接上 Supabase。先使用 Email 與密碼建立帳號，之後只有你登入時能讀取自己的資料。</p>
+    <div class="field"><label for="authEmail">Email</label><input id="authEmail" type="email" autocomplete="email" placeholder="name@example.com"></div>
+    <div class="field"><label for="authPassword">密碼</label><input id="authPassword" type="password" autocomplete="current-password" minlength="6" placeholder="至少 6 個字元"></div>
+    <div class="auth-actions"><button class="secondary" id="signUpButton" type="button">建立帳號</button><button class="primary" id="signInButton" type="button">登入</button></div>
+    <div class="auth-message" id="authMessage"></div>
+  </section>
+</div>
+<div class="db-status" id="dbStatus">正在連接 Supabase…</div>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">旅</div>
+      <div><small>TRAVEL ARCHIVE</small><strong>我的旅行足跡</strong></div>
+    </div>
+    <div class="header-tools">
+      <span class="current-user" id="currentUserText">ohmygodetet@gmail.com</span>
+      <button class="header-action logout-action" id="logoutButton" type="button">登出</button>
+      <button class="header-action" onclick="openJourneyModal()">＋ 新增旅程</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="home-view" id="homeView">
+      <div class="home-grid">
+        <div class="intro">
+          <h1>收藏地圖，<br>足跡備忘錄。</h1>
+          <p>地圖 Pin 標記地點，Journey 保存細節。</p>
+          <div class="stats">
+            <div class="stat"><strong id="journeyCount">4</strong><span>趟旅程</span></div>
+            <div class="stat"><strong id="countryCount">2</strong><span>個國家</span></div>
+            <div class="stat"><strong id="cityCount">4</strong><span>座城市</span></div>
+          </div>
+        </div>
+
+        <div class="map-area">
+          <div class="archive-view-tabs" role="tablist" aria-label="首頁檢視切換">
+            <button class="archive-view-tab active" type="button" data-home-view="map">⌖ 地圖</button>
+            <button class="archive-view-tab" type="button" data-home-view="timeline">⌁ 時光軸</button>
+          </div>
+          <div class="map-card" id="mapCard">
+            <div id="map"></div>
+          </div>
+          <div class="archive-timeline-card hidden" id="archiveTimeline">
+            <div class="archive-timeline-grid" id="archiveTimelineGrid" aria-label="依年份排列的旅程時光軸"></div>
+          </div>
+        </div>
+
+        <section class="section">
+          <div class="section-head"><h2>Journey</h2><span>依時間由新到舊</span></div>
+          <div class="tools">
+            <label class="search"><span>⌕</span><input id="searchInput" type="search" placeholder="搜尋國家、城市或景點" oninput="filterJourneys()"></label>
+            <select class="filter" id="regionFilter" onchange="filterJourneys()">
+              <option value="all">全部</option><option value="東北亞">東北亞</option><option value="東南亞">東南亞</option><option value="台灣">台灣</option><option value="歐洲">歐洲</option><option value="美洲">美洲</option><option value="大洋洲">大洋洲</option><option value="其他">其他</option>
+            </select>
+          </div>
+
+          <div class="journey-list">
+            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="東北亞" data-search="日本 名古屋 常滑 水族館 中山道 麵包超人">
+              <div class="journey-top">
+                <div><div class="eyebrow">Japan · Nagoya</div><h3>名古屋六天五夜</h3><div class="date">2025.10.22－10.27</div></div>
+                <div class="pill">最新旅程</div>
+              </div>
+              <p class="summary" id="journeySummary">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
+              <div class="card-actions card-actions-end">
+                <div class="icon-actions"><button type="button" aria-label="編輯旅程" onclick="event.stopPropagation();openJourneyModal()">✎</button><button type="button" aria-label="刪除旅程" onclick="event.stopPropagation();confirm('確定刪除此旅程嗎？')">⌫</button></div>
+              </div>
+            </article>
+
+            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="台灣" data-search="台灣 淡水 漁人碼頭">
+              <div class="journey-top">
+                <div><div class="eyebrow">Taiwan · Tamsui</div><h3>淡水週末小旅行</h3><div class="date">2026.07.18－07.19</div></div>
+                <div class="pill">2 天</div>
+              </div>
+              <p class="summary">淡水老街、河岸散步與親子輕旅行。</p>
+            </article>
+
+            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="台灣" data-search="台灣 墾丁 海生館">
+              <div class="journey-top">
+                <div><div class="eyebrow">Taiwan · Kenting</div><h3>墾丁三天兩夜</h3><div class="date">2026.05.01－05.03</div></div>
+                <div class="pill">3 天</div>
+              </div>
+              <p class="summary">南國公路、海邊與一家人的慢步調假期。</p>
+            </article>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="detail-view" id="detailView">
+      <div class="detail-hero has-cover" id="detailHero">
+        <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
+        <div class="hero-actions" aria-label="旅程操作">
+          <button class="hero-edit" onclick="openJourneyModal()">✎ 編輯旅程資訊</button>
+          <button class="hero-delete" onclick="confirm('確定刪除整趟旅程嗎？這會一併刪除所有 Day、Spot、Expense 與相關照片。')">刪除旅程</button>
+        </div>
+        <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
+        <h1 id="detailTitle">東京六天五夜</h1>
+        <div class="hero-meta-row">
+          <p id="detailMetaText" data-generated-from="journey">2025.10.22－10.27　｜　6 天 5 夜　｜　代表地點：名古屋港水族館</p>
+          <div class="hero-badges"><span>已完成</span><span id="heroCurrencyBadge">JPY</span></div>
+        </div>
+      </div>
+
+
+      <div class="days-wrap">
+        <div class="days-nav" id="daysNav" aria-label="旅程頁籤與可拖曳 Day 順序">
+          <div class="journey-primary-tabs" aria-label="旅程主要資料">
+            <button class="day-tab journey-info-tab" type="button" onclick="showDay('info',this)">旅程資訊</button>
+            <button class="day-tab budget-tab" type="button" onclick="showDay('budget',this)">費用</button>
+          </div>
+          <div class="day-tabs-scroll" aria-label="依日期排列的行程">
+            <button class="day-tab active" type="button" data-sortable-day="1" draggable="true" onclick="showDay(1,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 1 抵達</button>
+            <button class="day-tab" type="button" data-sortable-day="2" draggable="true" onclick="showDay(2,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 2 常滑</button>
+            <button class="day-tab" type="button" data-sortable-day="3" draggable="true" onclick="showDay(3,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 3 中山道</button>
+            <button class="day-tab" type="button" data-sortable-day="4" draggable="true" onclick="showDay(4,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 4 麵包超人</button>
+            <button class="day-tab" type="button" data-sortable-day="5" draggable="true" onclick="showDay(5,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 5 市區</button>
+            <button class="day-tab" type="button" data-sortable-day="6" draggable="true" onclick="showDay(6,this)"><span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day 6 返程</button>
+          </div>
+        </div>
+      </div>
+
+      <section class="day-section active" data-day="1">
+        <div class="day-header">
+          <div class="day-kicker">DAY 01 · WED</div>
+          <div class="day-date">2025 年 10 月 22 日</div>
+          <div class="day-title-row">
+            <h2>抵達中部國際機場</h2>
+            <div class="day-menu">
+              <button onclick="toggleDayMenu(this)">⋯</button>
+              <div class="day-menu-panel">
+                <button onclick="openDayModal(1)">編輯 Day 1</button>
+                <button onclick="openSpotModal()">新增行程節點</button>
+                <button class="danger" onclick="confirm('確定刪除 Day 1 嗎？')">刪除 Day 1</button>
+              </div>
+            </div>
+          </div>
+          <p class="day-subtitle">深夜抵達，先把一家人平安送進飯店。</p>
+        </div>
+
+        <div class="sort-help">↕ 按住卡片即可拖曳調整順序</div><div class="timeline" draggable-list="true">
+          <article class="spot-card" draggable="true"><span class="drag-handle">⋮⋮</span>
+            <div class="spot-top"><div><div class="spot-type">FLIGHT</div><h3>抵達中部國際機場</h3></div><div class="spot-time">22:20</div></div>
+            <p class="spot-note">虎航準時抵達，領完行李後走天橋前往機場旁飯店。</p>
+            <div class="spot-actions"><button onclick="openSpotModal()">編輯</button><button class="danger" onclick="confirm('確定刪除此行程節點嗎？')">刪除</button></div>
+            <button class="thought-toggle" onclick="toggleThought(this)">查看景點心得 <span>＋</span></button>
+            <div class="thought">領完行李走到東橫 INN 已經接近 23:30。自助入住與退房很方便，樓下就是 7-11。</div>
+          </article>
+
+          <article class="spot-card" draggable="true"><span class="drag-handle">⋮⋮</span>
+            <div class="spot-top"><div><div class="spot-type">STAY</div><h3>東橫 INN 中部國際機場</h3></div><div class="spot-time">23:30</div></div>
+            <p class="spot-note">入住、補充宵夜與孩子的睡前鮮奶。</p>
+            <div class="spot-actions"><button onclick="openSpotModal()">編輯</button><button class="danger" onclick="confirm('確定刪除此行程節點嗎？')">刪除</button></div>
+          </article>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 1 行程節點</button>
+      </section>
+
+      <section class="day-section" data-day="2">
+        <div class="day-header">
+          <div class="day-kicker">DAY 02 · THU</div>
+          <div class="day-date">2025 年 10 月 23 日</div>
+          <div class="day-title-row"><h2>常滑招財貓與水族館</h2></div>
+          <p class="day-subtitle">租車、陶器散步道與名古屋港水族館。</p>
+        </div>
+        <div class="timeline">
+          <article class="spot-card">
+            <div class="spot-top"><div><div class="spot-type">SPOT</div><h3>常滑陶器散步道</h3></div><div class="spot-time">11:45</div></div>
+            <p class="spot-note">巨大招財貓、瀧田家、登窯廣場與沿路陶器店。</p>
+            <div class="spot-actions"><button onclick="openSpotModal()">編輯</button><button class="danger">刪除</button></div>
+          </article>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 2 行程節點</button>
+      </section>
+
+      <section class="day-section" data-day="3">
+        <div class="day-header">
+          <div class="day-kicker">DAY 03 · FRI</div>
+          <div class="day-date">2025 年 10 月 24 日</div>
+          <div class="day-title-row"><h2>中山道與馬籠宿</h2></div>
+          <p class="day-subtitle">浮世繪、山城古道與昭和西餐廳。</p>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 3 行程節點</button>
+      </section>
+
+      <section class="day-section" data-day="4">
+        <div class="day-header">
+          <div class="day-kicker">DAY 04 · SAT</div>
+          <div class="day-date">2025 年 10 月 25 日</div>
+          <div class="day-title-row"><h2>麵包超人博物館</h2></div>
+          <p class="day-subtitle">孩子的主場與萬聖節回憶。</p>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 4 行程節點</button>
+      </section>
+
+      <section class="day-section" data-day="5">
+        <div class="day-header">
+          <div class="day-kicker">DAY 05 · SUN</div>
+          <div class="day-date">2025 年 10 月 26 日</div>
+          <div class="day-title-row"><h2>名古屋市區</h2></div>
+          <p class="day-subtitle">還車、寄放行李、百貨與大須商店街。</p>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 5 行程節點</button>
+      </section>
+
+      <section class="day-section" data-day="6">
+        <div class="day-header">
+          <div class="day-kicker">DAY 06 · MON</div>
+          <div class="day-date">2025 年 10 月 27 日</div>
+          <div class="day-title-row"><h2>返程</h2></div>
+          <p class="day-subtitle">最後一碗味噌豬排，然後把旅行收進行李箱。</p>
+        </div>
+        <button class="add-spot" onclick="openSpotModal()">＋ 新增 Day 6 行程節點</button>
+      </section>
+
+            <section class="day-section journey-info-section" data-day="info">
+        <div class="day-header">
+          <div class="day-kicker">JOURNEY INFORMATION</div>
+          <div class="day-title-row">
+            <h2>旅程資訊</h2>
+            <button class="header-action" type="button" onclick="openJourneyModal()">✎ 編輯旅程資訊</button>
+          </div>
+        </div>
+
+        <div class="journey-info-grid">
+          <article class="journey-info-card">
+            <div class="journey-info-icon">旅</div>
+            <div><div class="eyebrow">基本資料</div><h3>名古屋六天五夜</h3>
+              <dl><div><dt>日期</dt><dd>2025.10.22－10.27</dd></div><div><dt>國家</dt><dd>日本</dd></div><div><dt>城市／地區</dt><dd>名古屋、常滑、中山道</dd></div></dl>
+            </div>
+          </article>
+          <article class="journey-info-card">
+            <div class="journey-info-icon">✈</div>
+            <div><div class="eyebrow">去程航班</div><h3>台中 → 名古屋</h3>
+              <dl><div><dt>航班</dt><dd>台灣虎航 IT778</dd></div><div><dt>時間</dt><dd>10/22 18:10 → 22:20</dd></div><div><dt>機場</dt><dd>RMQ 台中 → NGO 中部</dd></div></dl>
+            </div>
+          </article>
+          <article class="journey-info-card">
+            <div class="journey-info-icon">✈</div>
+            <div><div class="eyebrow">回程航班</div><h3>名古屋 → 台中</h3>
+              <dl><div><dt>航班</dt><dd>台灣虎航 IT779</dd></div><div><dt>時間</dt><dd>10/27 13:15 → 15:25</dd></div><div><dt>機場</dt><dd>NGO 中部 → RMQ 台中</dd></div></dl>
+            </div>
+          </article>
+          <article class="journey-info-card">
+            <div class="journey-info-icon">車</div>
+            <div><div class="eyebrow">租車資料</div><h3>E-Drive</h3>
+              <dl><div><dt>取車</dt><dd>10/23 10:30・中部國際機場店</dd></div><div><dt>還車</dt><dd>10/26 10:30・椿店</dd></div><div><dt>配備</dt><dd>ETC、兒童座椅、甲地乙還</dd></div></dl>
+            </div>
+          </article>
+          <article class="journey-info-card">
+            <div class="journey-info-icon">⌖</div>
+            <div><div class="eyebrow">代表地點</div><h3>名古屋港水族館</h3>
+              <dl><div><dt>地址</dt><dd>愛知縣名古屋市港區港町 1-3</dd></div><div><dt>主要交通</dt><dd>租車、JR／火車、步行</dd></div></dl>
+            </div>
+          </article>
+        </div>
+      </section>
+
+
+      <section class="day-section budget-section" data-day="budget">
+        <div class="budget-head">
+          <div>
+            <div class="day-kicker">TRIP COST</div>
+            <h2>旅程費用</h2>
+            <p>保留每筆消費的原始幣別，同時換算成台幣彙總。出發前可以直接記台幣，抵達當地後則用當地幣別輸入。</p>
+          </div>
+          <button class="header-action" type="button" onclick="openExpenseModal()">＋ 新增費用</button>
+        </div>
+
+        <div class="budget-rate-card">
+          <div><span>主要幣別</span><strong id="budgetMainCurrencyText">JPY 日圓</strong></div>
+          <label><span>旅程換算匯率</span><div class="rate-input"><b>1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="renderBudget()"><b>TWD</b></div></label>
+          <small>每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
+        </div>
+
+        <div class="budget-kpis">
+          <article><span>換算總花費</span><strong id="budgetTotalTwd">NT$ 0</strong><small>所有幣別換算後</small></article>
+          <article><span>已輸入</span><strong id="budgetEntryCount">0 筆</strong><small>包含零元與預設項目</small></article>
+          <article><span>未完成</span><strong id="budgetMissingCount">0 筆</strong><small>點提醒即可篩選</small></article>
+          <article><span>主要幣別</span><strong id="budgetCurrencyKpi">JPY</strong><small>可於旅程設定修改</small></article>
+        </div>
+
+        <button class="missing-info-card" id="missingInfoCard" type="button" onclick="showMissingExpenses()">
+          <span class="missing-info-icon">!</span><span><strong id="missingInfoText">尚無未完成資料</strong><small>檢查類別、項目、金額、幣別與付款來源</small></span><b>查看 →</b>
+        </button>
+
+        <div class="budget-layout">
+          <section class="expense-panel">
+            <div class="budget-panel-head">
+              <div><div class="eyebrow">EXPENSE LOG</div><h3>花費明細</h3></div>
+              <select id="expensePhaseFilter" onchange="renderBudget()"><option value="all">全部階段</option><option value="pretrip">出發前</option><option value="local">旅行中</option><option value="posttrip">旅行後</option></select>
+            </div>
+            <div class="expense-list" id="expenseList"></div>
+          </section>
+
+          <aside class="budget-summary-panel">
+            <div class="eyebrow">CATEGORY SUMMARY</div><h3>類別統計</h3>
+            <div id="categorySummary" class="category-summary"></div>
+            <div class="master-data-panel">
+              <div class="master-tabs"><button class="active" type="button" data-master-tab="category" onclick="switchMasterTab('category',this)">類別</button><button type="button" data-master-tab="currency" onclick="switchMasterTab('currency',this)">幣別</button><button type="button" data-master-tab="payer" onclick="switchMasterTab('payer',this)">付款來源</button></div>
+              <div id="masterDataList" class="master-data-list"></div>
+              <div class="master-add"><input id="masterDataInput" placeholder="新增類別"><button type="button" onclick="addMasterItem()">＋ 新增</button></div>
+            </div>
+            <div class="budget-note">
+              <strong>設計重點</strong>
+              <p>台幣與當地幣別不必二選一。系統保存你當下真正支付的貨幣，再提供統一的台幣總覽。</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+<button class="empty-add-day" onclick="openDayModal()">＋ 新增一天</button>
+
+      <article class="review" id="journeyReview">
+        <h3>這趟旅行的總心得</h3>
+        <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
+        <div class="review-actions">
+          <button type="button" onclick="openReviewModal(event)">編輯總心得</button>
+          <button type="button" onclick="deleteReview(event)">刪除總心得</button>
+        </div>
+      </article>
+    </section>
+  </main>
+</div>
+
+<aside class="popover" id="popover">
+  <div class="popover-head"><div><div class="eyebrow" id="popCountry">JAPAN</div><h3 id="popCity">東京</h3></div><button onclick="closePopover()">×</button></div>
+  <div id="popTrips"></div>
+</aside>
+
+<div class="modal-backdrop" id="journeyModal" onclick="closeOnBackdrop(event,'journeyModal')">
+  <div class="modal">
+    <div class="modal-head"><h3>新增／編輯旅程</h3><button onclick="closeModal('journeyModal')">×</button></div>
+
+    <section class="field-group">
+      <h4 class="field-group-title">基本資料</h4>
+      
+
+      <div class="field">
+        <label>地區分類</label>
+        <div class="inline-add">
+          <select id="journeyRegion">
+            <option>東北亞</option>
+            <option>東南亞</option>
+            <option>台灣</option>
+            <option>歐洲</option>
+            <option>美洲</option>
+            <option>大洋洲</option>
+            <option>其他</option>
+          </select>
+          <button type="button" onclick="addCustomRegion()">＋ 新增分類</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>國家分類</label>
+        <div class="inline-add">
+          <select id="journeyCountry">
+            <option selected>日本</option>
+            <option>韓國</option>
+            <option>台灣</option>
+            <option>泰國</option>
+            <option>新加坡</option>
+            <option>英國</option>
+            <option>法國</option>
+            <option>美國</option>
+            <option>其他</option>
+          </select>
+          <button type="button" onclick="addCustomCountry()">＋ 新增國家</button>
+        </div>
+      </div>
+
+      <div class="field"><label>旅程名稱</label><input id="journeyName" value="名古屋六天五夜"></div>
+
+      <div class="two-col">
+        <div class="field"><label>開始日期</label><input id="journeyStart" type="date" value="2025-10-22"></div>
+        <div class="field"><label>結束日期</label><input id="journeyEnd" type="date" value="2025-10-27"></div>
+      </div>
+
+      <div class="field">
+        <label>主要到訪城市／地區</label>
+        <div class="city-input-grid" id="cityInputGrid">
+          <input value="名古屋市" placeholder="城市／地區 1">
+          <input value="常滑市" placeholder="城市／地區 2">
+          <input value="中津川市" placeholder="城市／地區 3">
+          <input value="桑名市" placeholder="城市／地區 4">
+        </div>
+        <button type="button" class="add-row-button" onclick="addCityInput()">＋ 新增更多城市</button>
+      </div>
+
+      <div class="field">
+        <label>代表地點（每個旅程一個 Pin）</label>
+        <input id="journeyPinPlace" value="東京鐵塔" placeholder="輸入景點、城市或地址">
+      </div>
+
+      <div class="field">
+        <label>旅程代表照片（每個旅程一張）</label>
+        <div class="journey-photo-upload">
+          <div class="journey-photo-preview" id="journeyPhotoPreview"></div>
+          <div>
+            <input id="journeyPhotoInput" type="file" accept="image/*">
+            <p>照片會顯示於地圖照片 Pin、時光軸卡片與旅程頁 Hero。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="field-group">
+      <h4 class="field-group-title">旅行設定</h4>
+      <div class="two-col">
+        <div class="field"><label>主要幣別</label><select id="journeyMainCurrency" onchange="syncJourneyCurrencySettings()"><option value="TWD">TWD 台幣</option><option value="JPY" selected>JPY 日圓</option><option value="USD">USD 美元</option><option value="EUR">EUR 歐元</option><option value="KRW">KRW 韓元</option><option value="THB">THB 泰銖</option></select></div>
+        <div class="field"><label>預設匯率（換算 TWD）</label><input id="journeyDefaultRate" type="number" min="0" step="0.0001" value="0.2052" oninput="syncJourneyRateSettings()"></div>
+      </div>
+      <label class="template-option"><input id="applyExpenseTemplate" type="checkbox" checked><span><strong>套用旅行預設費用</strong><small>自動建立：機票、住宿、交通、餐飲、購物、票券、通信、保險、其他</small></span></label>
+    </section>
+
+    <section class="field-group">
+      <h4 class="field-group-title">航班資訊</h4>
+      
+
+      <div class="field"><label>航空公司</label><input value="台灣虎航"></div>
+
+      <div class="flight-sections">
+        <article class="flight-card">
+          <div class="flight-card-head">
+            <div><div class="eyebrow">OUTBOUND</div><strong>去程</strong></div>
+            <span>出發</span>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發日期</label><input type="date" value="2025-10-22"></div>
+            <div class="field"><label>航班編號</label><input value="IT778"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發機場</label><input value="RMQ 台中"></div>
+            <div class="field"><label>抵達機場</label><input value="NGO 中部"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發時間</label><input type="time" value="18:40"></div>
+            <div class="field"><label>抵達時間</label><input type="time" value="22:30"></div>
+          </div>
+        </article>
+
+        <article class="flight-card">
+          <div class="flight-card-head">
+            <div><div class="eyebrow">INBOUND</div><strong>回程</strong></div>
+            <span>返家</span>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發日期</label><input type="date" value="2025-10-27"></div>
+            <div class="field"><label>航班編號</label><input value="IT779"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發機場</label><input value="NGO 中部"></div>
+            <div class="field"><label>抵達機場</label><input value="RMQ 台中"></div>
+          </div>
+          <div class="two-col">
+            <div class="field"><label>出發時間</label><input type="time" value="13:15"></div>
+            <div class="field"><label>抵達時間</label><input type="time" value="15:25"></div>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="field-group">
+      <h4 class="field-group-title">到達後的主要交通方式</h4>
+      
+
+      <div class="check-chips">
+        <label class="check-chip"><input type="checkbox" checked onchange="toggleRentalFields()">租車</label>
+        <label class="check-chip"><input type="checkbox">地鐵／捷運</label>
+        <label class="check-chip"><input type="checkbox">JR／火車／近鐵</label>
+        <label class="check-chip"><input type="checkbox">公車</label>
+        <label class="check-chip"><input type="checkbox">計程車／Uber</label>
+        <label class="check-chip"><input type="checkbox">渡輪／船</label>
+        <label class="check-chip"><input type="checkbox">自行車</label>
+        <label class="check-chip"><input type="checkbox">步行</label>
+      </div>
+      <div class="field" style="margin-top:10px"><label>其他交通方式</label><input placeholder="例如：機場接駁、包車、纜車"></div>
+
+      <div class="optional-block show" id="rentalFields">
+        <div class="field-group" style="margin-bottom:0">
+          <h4 class="field-group-title">租車資料</h4>
+          
+
+          <div class="field"><label>租車公司</label><input value="E-Drive"></div>
+
+          <div class="two-col">
+            <div class="field"><label>取車地點</label><input value="中部國際機場店"></div>
+            <div class="field"><label>還車地點</label><input value="椿店"></div>
+          </div>
+
+          <div class="two-col">
+            <div class="field"><label>取車日期與時間</label><input type="datetime-local" value="2025-10-23T10:30"></div>
+            <div class="field"><label>還車日期與時間</label><input type="datetime-local" value="2025-10-26T10:30"></div>
+          </div>
+
+          <div class="check-chips">
+            <label class="check-chip"><input type="checkbox" checked>甲地乙還</label>
+            <label class="check-chip"><input type="checkbox" checked>ETC</label>
+            <label class="check-chip"><input type="checkbox" checked>兒童座椅</label>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal('journeyModal')">取消</button>
+      <button class="primary" onclick="saveJourneyPrototype()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="dayModal" onclick="closeOnBackdrop(event,'dayModal')">
+  <div class="modal">
+    <div class="modal-head"><h3>新增／編輯一天</h3><button onclick="closeModal('dayModal')">×</button></div>
+    <input type="hidden" id="dayEditId">
+    <div class="field"><label for="dayEditDate">實際日期</label><input id="dayEditDate" type="date" value="2025-10-22"><small class="field-help">修改日期後，這一天會依日期自動移動到 days-wrap 的正確位置。</small></div>
+    <div class="field"><label for="dayEditTabLabel">Day Tab 簡稱</label><input id="dayEditTabLabel" maxlength="12" value="抵達" placeholder="例如：抵達、常滑"><small class="field-help">僅顯示在上方頁籤，例如「Day 1 抵達」。</small></div>
+    <div class="field"><label for="dayEditTitle">當日標題</label><input id="dayEditTitle" value="抵達中部國際機場"></div>
+    <div class="field"><label for="dayEditSummary">當日摘要</label><textarea id="dayEditSummary" rows="3">深夜抵達，先把一家人平安送進飯店。</textarea></div>
+    <div class="modal-actions"><button class="secondary" onclick="closeModal('dayModal')">取消</button><button class="primary" type="button" onclick="saveDayPrototype()">儲存</button></div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="spotModal" onclick="closeOnBackdrop(event,'spotModal')">
+  <div class="modal">
+    <div class="modal-head"><h3>新增／編輯行程節點</h3><button onclick="closeModal('spotModal')">×</button></div>
+    <div class="field"><label>類型</label><select><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select></div>
+    <div class="field"><label>名稱</label><input value="抵達中部國際機場"></div>
+    <div class="field"><label>時間</label><input type="time" value="22:20"></div>
+    <div class="field"><label>備註</label><textarea rows="3">虎航準時抵達，領完行李後走天橋前往機場旁飯店。</textarea></div>
+    <div class="field"><label>景點心得</label><textarea rows="4">領完行李走到東橫 INN 已經接近 23:30。</textarea></div>
+    <div class="modal-actions"><button class="secondary" onclick="closeModal('spotModal')">取消</button><button class="primary" onclick="closeModal('spotModal')">儲存</button></div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="reviewModal" onclick="closeOnBackdrop(event,'reviewModal')">
+  <div class="modal review-modal">
+    <div class="modal-head">
+      <h3>編輯旅程總心得</h3>
+      <button onclick="closeModal('reviewModal')">×</button>
+    </div>
+    <div class="field">
+      <label>總心得</label>
+      <textarea id="reviewEditor" rows="8">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal('reviewModal')">取消</button>
+      <button class="primary" onclick="saveReview()">儲存心得</button>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal-backdrop" id="expenseModal" onclick="closeOnBackdrop(event,'expenseModal')">
+  <div class="modal expense-modal">
+    <div class="modal-head"><h3 id="expenseModalTitle">新增費用</h3><button onclick="closeModal('expenseModal')">×</button></div>
+    <div class="two-col">
+      <div class="field"><label>消費階段</label><select id="expensePhase"><option value="pretrip">出發前</option><option value="local">旅行中</option><option value="posttrip">旅行後</option></select><small class="field-help">依日期自動判斷，仍可手動修改</small></div>
+      <div class="field"><label>所屬日程</label><select id="expenseDay"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>類別</label><select id="expenseCategory"><option>機票</option><option>住宿</option><option>交通</option><option>餐飲</option><option>票券</option><option>購物</option><option>通信</option><option>保險</option><option>其他</option></select></div>
+      <div class="field"><label>項目</label><input id="expenseItem" placeholder="例如：名古屋港水族館門票"></div>
+    </div>
+    <div class="three-col expense-money-grid">
+      <div class="field"><label>幣別</label><select id="expenseCurrency" onchange="toggleCustomRate()"></select><small class="field-help">首選旅程主要幣別，可改回 TWD</small></div>
+      <div class="field"><label>原始金額</label><input id="expenseAmount" type="number" min="0" step="1" placeholder="0"></div>
+      <div class="field"><label>單筆匯率（選填）</label><input id="expenseRate" type="number" min="0" step="0.0001" placeholder="使用旅程預設匯率"><small class="field-help">填寫後永久覆蓋本筆費用匯率</small></div>
+    </div>
+    <div class="two-col">
+      <div class="field"><label>付款來源</label><select id="expensePayer"></select></div>
+      <div class="field"><label>日期</label><input id="expenseDate" type="date" onchange="autoAssignExpenseMeta()"><small class="field-help">依日期自動配對消費階段與 Day</small></div>
+    </div>
+    <div class="field"><label>備註</label><textarea id="expenseNote" rows="3" placeholder="刷卡、現金、費用內容或結算備註"></textarea></div>
+    <div class="converted-preview"><span>換算台幣</span><strong id="expenseConvertedPreview">NT$ 0</strong></div><div class="modal-actions"><button class="secondary" onclick="closeModal('expenseModal')">取消</button><button class="primary" id="expenseSaveButton" onclick="addExpensePrototype()">新增費用</button></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/data.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script>
+    // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
+    // so these two handlers are supplied here for prototype confirmation.
+    function openReviewModal(event){
+      event?.preventDefault();
+      event?.stopPropagation();
+      const editor=document.getElementById('reviewEditor');
+      const review=document.getElementById('reviewText');
+      if(editor && review) editor.value=review.textContent.trim();
+      document.getElementById('reviewModal')?.classList.add('show');
+      document.body.classList.add('modal-open');
+    }
+    function deleteReview(event){
+      event?.preventDefault();
+      event?.stopPropagation();
+      if(!window.confirm('確定刪除這趟旅行的總心得嗎？')) return;
+      const emptyText='尚未新增這趟旅行的總心得。';
+      const review=document.getElementById('reviewText');
+      const summary=document.getElementById('journeySummary');
+      const editor=document.getElementById('reviewEditor');
+      if(review) review.textContent=emptyText;
+      if(summary) summary.textContent=emptyText;
+      if(editor) editor.value='';
+    }
+  </script>
+
+  <script>
+    // v1.1.5: one Day record synchronizes the tab, header and edit modal.
+    (() => {
+      const tabsWrap = document.querySelector('.day-tabs-scroll');
+      if (!tabsWrap) return;
+
+      let draggedTab = null;
+      let suppressClickUntil = 0;
+      const pad2 = value => String(value).padStart(2, '0');
+      const weekdayNames = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+      const getDayTabs = () => [...tabsWrap.querySelectorAll('.day-tab[data-sortable-day]')];
+      const getDaySections = () => [...document.querySelectorAll('.day-section[data-day]')].filter(section => /^\d+$/.test(section.dataset.day || ''));
+      const parseDateInput = value => {
+        const [year, month, day] = String(value || '').split('-').map(Number);
+        return year && month && day ? new Date(year, month - 1, day) : null;
+      };
+      const toInputDate = date => `${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`;
+      const parseVisibleDate = section => {
+        if (section?.dataset.date) return parseDateInput(section.dataset.date);
+        const text = section?.querySelector('.day-date')?.textContent || '';
+        const match = text.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+        return match ? new Date(Number(match[1]), Number(match[2])-1, Number(match[3])) : null;
+      };
+      const tabSuffix = tab => {
+        if (tab.dataset.tabLabel !== undefined) return tab.dataset.tabLabel.trim();
+        const clone = tab.cloneNode(true);
+        clone.querySelector('.day-drag-handle')?.remove();
+        return clone.textContent.trim().replace(/^Day\s*\d+\s*/i, '').trim();
+      };
+      const sectionForTab = tab => document.querySelector(`.day-section[data-day-id="${CSS.escape(tab.dataset.dayId)}"]`);
+      const tabForSection = section => tabsWrap.querySelector(`.day-tab[data-day-id="${CSS.escape(section.dataset.dayId)}"]`);
+
+      function initializeDayRecords(){
+        getDayTabs().forEach((tab, index) => {
+          const oldNumber = tab.dataset.sortableDay || String(index + 1);
+          const section = document.querySelector(`.day-section[data-day="${oldNumber}"]`);
+          const stableId = tab.dataset.dayId || section?.dataset.dayId || `day-${Date.now()}-${index+1}`;
+          tab.dataset.dayId = stableId;
+          tab.dataset.tabLabel = tabSuffix(tab);
+          if (section) {
+            section.dataset.dayId = stableId;
+            const date = parseVisibleDate(section);
+            if (date) section.dataset.date = toInputDate(date);
+          }
+        });
+        ensureEveryDayHasMenu();
+      }
+
+      function ensureEveryDayHasMenu(){
+        getDaySections().forEach(section => {
+          const row = section.querySelector('.day-title-row');
+          if (!row || row.querySelector('.day-menu')) return;
+          const menu = document.createElement('div');
+          menu.className = 'day-menu';
+          menu.innerHTML = `<button type="button" onclick="toggleDayMenu(this)">⋯</button><div class="day-menu-panel"><button type="button">編輯這一天</button><button type="button" onclick="openSpotModal()">新增行程節點</button><button type="button" class="danger">刪除這一天</button></div>`;
+          row.appendChild(menu);
+        });
+      }
+
+      function renderDayRecord(tab, section, dayNumber){
+        const suffix = (tab.dataset.tabLabel || '').trim();
+        const handle = '<span class="day-drag-handle" aria-hidden="true">⋮⋮</span>';
+        tab.dataset.sortableDay = String(dayNumber);
+        tab.setAttribute('onclick', `showDay(${dayNumber},this)`);
+        tab.innerHTML = `${handle}Day ${dayNumber}${suffix ? ` ${suffix}` : ''}`;
+        section.dataset.day = String(dayNumber);
+
+        const date = parseVisibleDate(section) || new Date();
+        section.dataset.date = toInputDate(date);
+        const kicker = section.querySelector('.day-kicker');
+        const dateText = section.querySelector('.day-date');
+        if (kicker) kicker.textContent = `DAY ${pad2(dayNumber)} · ${weekdayNames[date.getDay()]}`;
+        if (dateText) dateText.textContent = `${date.getFullYear()} 年 ${pad2(date.getMonth()+1)} 月 ${pad2(date.getDate())} 日`;
+
+        const editButton = section.querySelector('.day-menu-panel button:not(.danger)');
+        if (editButton) {
+          editButton.textContent = `編輯 Day ${dayNumber}`;
+          editButton.setAttribute('onclick', `openDayModal('${section.dataset.dayId}')`);
+        }
+        const deleteButton = section.querySelector('.day-menu-panel button.danger');
+        if (deleteButton) {
+          deleteButton.textContent = `刪除 Day ${dayNumber}`;
+          deleteButton.setAttribute('onclick', `confirm('確定刪除 Day ${dayNumber} 嗎？')`);
+        }
+        const addButton = section.querySelector('.add-spot');
+        if (addButton) addButton.textContent = `＋ 新增 Day ${dayNumber} 行程節點`;
+      }
+
+      function reorderSectionsToTabs(){
+        const anchor = [...document.querySelectorAll('.day-section')].find(section => !/^\d+$/.test(section.dataset.day || ''));
+        getDayTabs().forEach(tab => {
+          const section = sectionForTab(tab);
+          if (section && anchor?.parentNode) anchor.parentNode.insertBefore(section, anchor);
+        });
+      }
+
+      function syncExpenseDayOptions(){
+        const expenseDay = document.getElementById('expenseDay');
+        if (!expenseDay) return;
+        const oldValue = expenseDay.value;
+        expenseDay.innerHTML = '<option value="">未指定</option>' + getDayTabs().map((_,i) => `<option>Day ${i+1}</option>`).join('');
+        if ([...expenseDay.options].some(option => option.value === oldValue)) expenseDay.value = oldValue;
+      }
+
+      function renumberCurrentOrder({assignContinuousDates = false} = {}){
+        const tabs = getDayTabs();
+        if (assignContinuousDates) {
+          const dated = tabs.map(tab => parseVisibleDate(sectionForTab(tab))).filter(Boolean).sort((a,b)=>a-b);
+          const startDate = parseDateInput(document.getElementById('journeyStart')?.value) || dated[0] || new Date();
+          tabs.forEach((tab,index) => {
+            const section = sectionForTab(tab);
+            const date = new Date(startDate);
+            date.setDate(startDate.getDate() + index);
+            if (section) section.dataset.date = toInputDate(date);
+          });
+        }
+        reorderSectionsToTabs();
+        tabs.forEach((tab,index) => {
+          const section = sectionForTab(tab);
+          if (section) renderDayRecord(tab, section, index+1);
+        });
+        syncExpenseDayOptions();
+      }
+
+      function sortByDateAndRender(activeId){
+        const records = getDayTabs().map((tab,index) => ({tab, section: sectionForTab(tab), index}));
+        records.sort((a,b) => {
+          const da = parseVisibleDate(a.section)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          const db = parseVisibleDate(b.section)?.getTime() ?? Number.MAX_SAFE_INTEGER;
+          return da - db || a.index - b.index;
+        });
+        records.forEach(({tab}) => tabsWrap.appendChild(tab));
+        renumberCurrentOrder({assignContinuousDates:false});
+        const activeTab = getDayTabs().find(tab => tab.dataset.dayId === activeId);
+        if (activeTab) activeTab.click();
+      }
+
+      window.openDayModal = function(dayRef){
+        ensureEveryDayHasMenu();
+        let section = null;
+        if (typeof dayRef === 'string' && dayRef.startsWith('day-')) section = document.querySelector(`.day-section[data-day-id="${CSS.escape(dayRef)}"]`);
+        if (!section && dayRef !== undefined) section = document.querySelector(`.day-section[data-day="${dayRef}"]`);
+        if (!section) section = document.querySelector('.day-section.active[data-day]') || getDaySections()[0];
+        if (!section) return;
+        const tab = tabForSection(section);
+        document.getElementById('dayEditId').value = section.dataset.dayId;
+        document.getElementById('dayEditDate').value = section.dataset.date || toInputDate(parseVisibleDate(section) || new Date());
+        document.getElementById('dayEditTabLabel').value = tab?.dataset.tabLabel || '';
+        document.getElementById('dayEditTitle').value = section.querySelector('.day-title-row h2')?.textContent.trim() || '';
+        document.getElementById('dayEditSummary').value = section.querySelector('.day-subtitle')?.textContent.trim() || '';
+        document.getElementById('dayModal')?.classList.add('show');
+        document.body.classList.add('modal-open');
+      };
+
+      window.saveDayPrototype = function(){
+        const id = document.getElementById('dayEditId').value;
+        const section = document.querySelector(`.day-section[data-day-id="${CSS.escape(id)}"]`);
+        const tab = section ? tabForSection(section) : null;
+        if (!section || !tab) return;
+        const dateValue = document.getElementById('dayEditDate').value;
+        if (!parseDateInput(dateValue)) { alert('請輸入有效日期'); return; }
+        section.dataset.date = dateValue;
+        tab.dataset.tabLabel = document.getElementById('dayEditTabLabel').value.trim();
+        const title = section.querySelector('.day-title-row h2');
+        const summary = section.querySelector('.day-subtitle');
+        if (title) title.textContent = document.getElementById('dayEditTitle').value.trim() || '未命名的一天';
+        if (summary) summary.textContent = document.getElementById('dayEditSummary').value.trim();
+        sortByDateAndRender(id);
+        closeModal('dayModal');
+      };
+
+      tabsWrap.addEventListener('dragstart', event => {
+        const tab = event.target.closest('.day-tab[data-sortable-day]');
+        if (!tab) return;
+        draggedTab = tab;
+        tab.classList.add('day-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', tab.dataset.dayId);
+      }, true);
+
+      tabsWrap.addEventListener('dragover', event => {
+        if (!draggedTab) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const overTab = event.target.closest('.day-tab[data-sortable-day]');
+        getDayTabs().forEach(tab => tab.classList.remove('day-drop-target'));
+        if (!overTab || overTab === draggedTab) return;
+        overTab.classList.add('day-drop-target');
+        const rect = overTab.getBoundingClientRect();
+        tabsWrap.insertBefore(draggedTab, event.clientX > rect.left + rect.width/2 ? overTab.nextSibling : overTab);
+      }, true);
+
+      tabsWrap.addEventListener('drop', event => {
+        if (!draggedTab) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        // Dragging exchanges whole-day content. Dates are reassigned continuously by the new position.
+        renumberCurrentOrder({assignContinuousDates:true});
+        suppressClickUntil = Date.now() + 350;
+      }, true);
+
+      tabsWrap.addEventListener('dragend', event => {
+        event.stopImmediatePropagation();
+        getDayTabs().forEach(tab => tab.classList.remove('day-dragging','day-drop-target'));
+        draggedTab = null;
+      }, true);
+
+      tabsWrap.addEventListener('click', event => {
+        if (Date.now() < suppressClickUntil) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      }, true);
+
+      initializeDayRecords();
+      renumberCurrentOrder({assignContinuousDates:false});
+    })();
+  </script>
+
+</body>
+</html>
