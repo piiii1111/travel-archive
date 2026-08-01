@@ -43,6 +43,13 @@ function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
 function switchMode(mode,btn){document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
 function filterJourneys(){const q=normalizeText(document.getElementById('searchInput').value).toLowerCase();const region=document.getElementById('regionFilter').value;document.querySelectorAll('.journey-card').forEach(c=>{const okQ=!q||c.dataset.search.toLowerCase().includes(q);const okR=region==='all'||c.dataset.region===region;c.style.display=okQ&&okR?'':'none'})}
 function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
+function toggleFlightFields(){
+  const noFlight=document.getElementById('journeyNoFlight')?.checked;
+  const fields=document.getElementById('flightFields');
+  if(!fields)return;
+  fields.hidden=Boolean(noFlight);
+  fields.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=Boolean(noFlight)});
+}
 function saveJourneyPrototype(){closeModal('journeyModal');alert('Prototype：介面確認用，尚未寫入資料庫。')}
 function saveReview(){
   const value=document.getElementById('reviewEditor')?.value.trim() || '';
