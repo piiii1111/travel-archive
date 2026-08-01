@@ -17,3 +17,9 @@ Travel Archive v1.2｜Supabase Connection
 安全提醒：
 - index 與 JS 中只使用 sb_publishable_...，這是前端可公開的低權限金鑰。
 - 絕對不要放入 sb_secret_... 或 service_role。
+
+
+v1.2.1 修正：
+- 新增「摩托車」交通方式。
+- 新增「本次旅程沒有搭乘飛機」選項。
+- 若 Supabase 出現 default_exchange_rate 欄位不存在，請先執行同包內的 supabase-v1.2.1-migration.sql。

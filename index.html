@@ -476,9 +476,14 @@
 
     <section class="field-group">
       <h4 class="field-group-title">航班資訊</h4>
-      
 
-      <div class="field"><label>航空公司</label><input value="台灣虎航"></div>
+      <label class="template-option no-flight-option">
+        <input id="journeyNoFlight" type="checkbox" onchange="toggleFlightFields()">
+        <span><strong>本次旅程沒有搭乘飛機</strong><small>例如台灣國內旅行、自駕旅行或搭乘火車。勾選後，航班欄位會收起且不需填寫。</small></span>
+      </label>
+
+      <div id="flightFields">
+      <div class="field"><label>航空公司</label><input id="journeyAirline" value="台灣虎航"></div>
 
       <div class="flight-sections">
         <article class="flight-card">
@@ -519,6 +524,7 @@
           </div>
         </article>
       </div>
+      </div>
     </section>
 
     <section class="field-group">
@@ -532,6 +538,7 @@
         <label class="check-chip"><input type="checkbox">公車</label>
         <label class="check-chip"><input type="checkbox">計程車／Uber</label>
         <label class="check-chip"><input type="checkbox">渡輪／船</label>
+        <label class="check-chip"><input type="checkbox">摩托車</label>
         <label class="check-chip"><input type="checkbox">自行車</label>
         <label class="check-chip"><input type="checkbox">步行</label>
       </div>
