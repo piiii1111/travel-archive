@@ -1,19 +1,38 @@
-Travel Archive v1.2.2 修正版
+Travel Archive v1.2｜Supabase Connection
 
-本次修正：
-1. 新增旅程會同時送出 owner_id 與 user_id，並自動相容現有 Supabase 欄位。
-2. 地圖固定為每趟旅程一個 Pin，不再依城市數量重複建立。
-3. 修正「地圖／時光軸」切換，時光軸改為依年份由新到舊排列。
-4. 移除點擊畫面左側就返回首頁的行為，選取表單文字不再誤跳頁。
-5. 新增旅程表單改為真正空白，不會帶入名古屋資料。
-6. 手機版儲存列固定於視窗底部，並支援 iPhone 安全區。
-7. 往下滑動時會自動收起 day-menu。
-8. 資料庫連線成功提示只會出現在首頁。
+這個版本已完成：
+1. Email＋密碼註冊／登入
+2. 登出
+3. 從 Supabase 讀取 journeys
+4. 新增、編輯、刪除 Journey
+5. 重新整理後資料仍存在
 
-更新方式：
-A. 先到 Supabase → SQL 編輯器 → 新增查詢。
-B. 貼上 supabase/migrations/007_fix_journey_owner_id.sql 的全部內容，按 Run。
-C. 將本資料夾內的 index.html、css、js 全部更新到 GitHub Repository 根目錄。
-D. 等 Cloudflare Pages 自動完成部署，再用 Command + Shift + R 強制重新整理。
+使用方式：
+- 將整個資料夾上傳 GitHub。
+- 使用 Cloudflare Pages 部署。
+- Supabase Dashboard > Authentication > URL Configuration：
+  Site URL 填入 Cloudflare Pages 網址。
+  Redirect URLs 加入同一網址與網址後方的 /*。
 
-請勿只上傳 index.html，css 與 js 資料夾也必須一起更新。
+安全提醒：
+- index 與 JS 中只使用 sb_publishable_...，這是前端可公開的低權限金鑰。
+- 絕對不要放入 sb_secret_... 或 service_role。
+
+
+v1.2.1 修正：
+- 新增「摩托車」交通方式。
+- 新增「本次旅程沒有搭乘飛機」選項。
+- 若 Supabase 出現 default_exchange_rate 欄位不存在，請先執行同包內的 supabase-v1.2.1-migration.sql。
+
+v1.2.2 修正：
+- 新增旅程時正確寫入 owner_id。
+- 地圖、時光軸與旅程清單統一讀取 Supabase 的真實旅程資料。
+- 每趟旅程只顯示一個地圖 Pin。
+- 移除 popover；點擊 Pin 直接進入旅程。
+- 修正地圖／時光軸切換。
+- 新增旅程表單不再帶入名古屋範例資料。
+- 手機版儲存按鈕保持在可操作範圍。
+- 捲動頁面時自動關閉 day-menu。
+- db-status 只在首頁顯示。
+
+本次更新不需要再執行新的 SQL。
