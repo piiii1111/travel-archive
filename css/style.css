@@ -681,3 +681,7 @@ body.spot-sorting{
 .timeline[draggable-list="true"] .drag-handle:active{cursor:grabbing}
 .timeline[draggable-list="true"] > .spot-card.dragging{opacity:.72;transform:scale(1.01);box-shadow:0 16px 34px rgba(0,0,0,.16);z-index:8}
 body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
+
+/* v1.2.1: no-flight journey option */
+.no-flight-option{margin-bottom:14px}
+#flightFields[hidden]{display:none!important}
