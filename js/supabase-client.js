@@ -83,9 +83,14 @@
     }
   }
 
-  async function searchPlace(place, country, cities = []) {
-    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','泰國':'th','新加坡':'sg','英國':'gb','法國':'fr','美國':'us'};
-    const query = [place, ...cities.slice(0, 2), country].filter(Boolean).join(', ');
+  async function searchPlace(place, country) {
+    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','英國':'gb','法國':'fr','美國':'us'};
+    const aliases = [
+      [/廣安[裏里]海灘|廣安[裏里]沙灘/u, 'Gwangalli Beach, Busan'],
+      [/釜山海雲台|海雲台海灘/u, 'Haeundae Beach, Busan']
+    ];
+    const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, place.trim());
+    const query = [normalized, country].filter(Boolean).join(', ');
     const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'1', 'accept-language':'zh-TW' });
     const code = countryCodes[country];
     if (code) params.set('countrycodes', code);
@@ -97,11 +102,16 @@
 
   async function resolvePinLocation(place, country, cities) {
     if (!place) return { latitude:null, longitude:null, pin_address:'' };
-    let result = await searchPlace(place, country, cities);
+    const coordinateMatch = place.trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+    if (coordinateMatch) {
+      const latitude = Number(coordinateMatch[1]); const longitude = Number(coordinateMatch[2]);
+      if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) return { latitude, longitude, pin_address:`${latitude}, ${longitude}` };
+    }
+    let result = await searchPlace(place, country);
     if (!result) {
       const address = prompt(`找不到「${place}」的地理位置。\n\n請輸入較完整的實際地址，例如：宜蘭縣羅東鎮民權路。`);
       if (!address?.trim()) throw new Error('尚未找到代表地點，旅程尚未儲存。');
-      result = await searchPlace(address.trim(), country, cities);
+      result = await searchPlace(address.trim(), country);
       if (!result) throw new Error(`仍然找不到「${address.trim()}」，請確認地址後再試一次。`);
     }
     return { latitude:Number(result.lat), longitude:Number(result.lon), pin_address:result.display_name || '' };
@@ -171,6 +181,7 @@
     }
     window.setJourneyData?.(rows);
     window.setRegionCountryData?.(rows);
+    window.setCurrencyData?.(rows);
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
     if ($('countryCount')) $('countryCount').textContent = String(new Set(rows.map(row => row.country).filter(Boolean)).size);
   }
@@ -211,6 +222,7 @@
     if ($('journeyPhotoStatus')) $('journeyPhotoStatus').textContent = '可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。';
     $('rentalFields')?.classList.remove('show');
     window.toggleFlightFields?.();
+    window.syncJourneyDateFields?.();
   }
 
   function openJourneyForEdit(row) {
@@ -247,6 +259,7 @@
     document.querySelectorAll('[data-rental-option]').forEach(input => { input.checked = (details.rental?.options || []).includes(input.value); });
     $('rentalFields')?.classList.toggle('show', (details.transports || []).includes('租車'));
     window.toggleFlightFields?.();
+    window.syncJourneyDateFields?.();
     showCoverPreview(row.cover_url || '');
     if ($('journeyPhotoStatus')) $('journeyPhotoStatus').textContent = existingCoverPath ? '目前照片已保存；重新選擇檔案即可更換。' : '可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。';
     window.openJourneyModal('edit');
@@ -272,6 +285,11 @@
     const endDate = $('journeyEnd')?.value;
     if (!title || !startDate || !endDate) return alert('請填寫旅程名稱、開始日期與結束日期。');
     if (endDate < startDate) return alert('結束日期不能早於開始日期。');
+    const boundedFields = [['journeyInboundDate','回程日期'],['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']];
+    for (const [id,label] of boundedFields) {
+      const input = $(id);
+      if (input?.value && !window.validateJourneyBoundedDate?.(input,label)) return;
+    }
 
     const country = fieldValue('journeyCountry');
     const cities = [...document.querySelectorAll('#cityInputGrid input')].map(input => input.value.trim()).filter(Boolean);

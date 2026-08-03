@@ -52,6 +52,54 @@ function addCustomRegion(){
   if(![...select.options].some(option=>option.value===region))select.add(new Option(region,region));
   select.value=region;syncJourneyCountryOptions();
 }
+function setCurrencyData(rows){
+  (rows||[]).forEach(row=>{const code=normalizeText(row.main_currency).toUpperCase();if(code&&!masterData.currency.includes(code))masterData.currency.push(code)});
+  const select=document.getElementById('journeyMainCurrency');
+  if(select)populateSelect('journeyMainCurrency',masterData.currency,select.value||'TWD');
+}
+window.setCurrencyData=setCurrencyData;
+function addCustomCurrency(){
+  const code=normalizeText(prompt('請輸入貨幣代碼，例如：MYR、PHP、AUD')||'').toUpperCase();
+  if(!code)return;
+  if(!/^[A-Z]{3,5}$/.test(code)){alert('請輸入 3～5 個英文字母的貨幣代碼。');return}
+  if(!masterData.currency.includes(code))masterData.currency.push(code);
+  populateSelect('journeyMainCurrency',masterData.currency,code);
+  syncJourneyCurrencySettings();
+}
+function datePart(value){return String(value||'').slice(0,10)}
+function withDate(value,date){return date?`${date}T${String(value||'').slice(11,16)||'00:00'}`:''}
+function syncJourneyDateFields(source=''){
+  const startInput=document.getElementById('journeyStart');const endInput=document.getElementById('journeyEnd');
+  const start=startInput?.value;let end=endInput?.value;
+  if(!start)return;
+  if(!end||end<start){end=start;if(endInput)endInput.value=end;if(source==='end')alert('結束日期不能早於開始日期，已調整為開始日期。')}
+  if(endInput)endInput.min=start;
+  const setDefault=(id,value)=>{const input=document.getElementById(id);if(input&&!input.value)input.value=value};
+  setDefault('journeyOutboundDate',start);
+  setDefault('expenseDate',start);
+  setDefault('journeyInboundDate',end);
+  setDefault('journeyRentalPickupAt',`${start}T00:00`);
+  setDefault('journeyRentalReturnAt',`${end}T00:00`);
+  if(source==='start'){
+    const outbound=document.getElementById('journeyOutboundDate');if(outbound)outbound.value=start;
+    const pickup=document.getElementById('journeyRentalPickupAt');if(pickup)pickup.value=withDate(pickup.value,start);
+    const expense=document.getElementById('expenseDate');if(expense&&!expense.value)expense.value=start;
+  }
+  if(source==='end'){
+    const inbound=document.getElementById('journeyInboundDate');if(inbound)inbound.value=end;
+    const rentalReturn=document.getElementById('journeyRentalReturnAt');if(rentalReturn)rentalReturn.value=withDate(rentalReturn.value,end);
+  }
+  if(source==='start'&&document.getElementById('dayEditDate'))document.getElementById('dayEditDate').value=start;
+  const boundedDates=[['journeyInboundDate','回程日期'],['dayEditDate','Day 日期']];
+  boundedDates.forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=start;input.max=end;if(input.value&&(input.value<start||input.value>end))input.value=id==='journeyInboundDate'?end:start}});
+  [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=`${start}T00:00`;input.max=`${end}T23:59`;if(input.value&&(datePart(input.value)<start||datePart(input.value)>end))input.value=withDate(input.value,id==='journeyRentalReturnAt'?end:start)}});
+}
+function validateJourneyBoundedDate(input,label){
+  const start=document.getElementById('journeyStart')?.value;const end=document.getElementById('journeyEnd')?.value;const value=datePart(input?.value);
+  if(!value||!start||!end)return true;
+  if(value<start||value>end){alert(`${label}必須在 Journey 日期 ${start}～${end} 之內。`);input.value=input.type==='datetime-local'?withDate(input.value,value<start?start:end):(value<start?start:end);return false}
+  return true;
+}
 function renderTimeline(){
   const root=document.getElementById('archiveTimelineGrid'); if(!root)return;
   const groups=journeys.reduce((acc,j)=>((acc[j.year]??=[]).push(j),acc),{});
@@ -191,6 +239,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-home-view]').forEach(btn=>btn.addEventListener('click',()=>switchHomeView(btn.dataset.homeView,btn)));
   window.addEventListener('scroll',closeDayMenus,{passive:true,capture:true});
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('.day-menu'))closeDayMenus()});
+  [['journeyInboundDate','回程日期'],['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間'],['dayEditDate','Day 日期']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
   document.getElementById('detailHero').style.backgroundImage="url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1600&q=85')";
 });
 
@@ -359,7 +408,7 @@ function openExpenseModal(expenseId=null){
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('expenseModalTitle').textContent=expense?'編輯費用':'新增費用';
   document.getElementById('expenseSaveButton').textContent=expense?'儲存修改':'新增費用';
-  document.getElementById('expenseDate').value=expense?.date||today;
+  document.getElementById('expenseDate').value=expense?.date||document.getElementById('journeyStart')?.value||today;
   document.getElementById('expensePhase').value=expense?.phase||phaseFromDate(today);
   document.getElementById('expenseDay').value=expense?.day||dayFromDate(today);
   document.getElementById('expenseCategory').value=expense?.category||masterData.category[0];

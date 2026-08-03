@@ -428,8 +428,8 @@
       <div class="field"><label>旅程名稱</label><input id="journeyName" value="名古屋六天五夜"></div>
 
       <div class="two-col">
-        <div class="field"><label>開始日期</label><input id="journeyStart" type="date" value="2025-10-22"></div>
-        <div class="field"><label>結束日期</label><input id="journeyEnd" type="date" value="2025-10-27"></div>
+        <div class="field"><label>開始日期</label><input id="journeyStart" type="date" value="2025-10-22" onchange="syncJourneyDateFields('start')"></div>
+        <div class="field"><label>結束日期</label><input id="journeyEnd" type="date" value="2025-10-27" onchange="syncJourneyDateFields('end')"></div>
       </div>
 
       <div class="field">
@@ -463,7 +463,7 @@
     <section class="field-group">
       <h4 class="field-group-title">旅行設定</h4>
       <div class="two-col">
-        <div class="field"><label>主要幣別</label><select id="journeyMainCurrency" onchange="syncJourneyCurrencySettings()"><option value="TWD">TWD 台幣</option><option value="JPY" selected>JPY 日圓</option><option value="USD">USD 美元</option><option value="EUR">EUR 歐元</option><option value="KRW">KRW 韓元</option><option value="THB">THB 泰銖</option></select></div>
+        <div class="field"><label>主要幣別</label><div class="inline-add"><select id="journeyMainCurrency" onchange="syncJourneyCurrencySettings()"><option value="TWD">TWD 台幣</option><option value="JPY" selected>JPY 日圓</option><option value="USD">USD 美元</option><option value="EUR">EUR 歐元</option><option value="KRW">KRW 韓元</option><option value="THB">THB 泰銖</option></select><button type="button" onclick="addCustomCurrency()">＋ 新增貨幣</button></div></div>
         <div class="field"><label>預設匯率（換算 TWD）</label><input id="journeyDefaultRate" type="number" min="0" step="0.0001" value="0.2052" oninput="syncJourneyRateSettings()"></div>
       </div>
       <label class="template-option"><input id="applyExpenseTemplate" type="checkbox" checked><span><strong>套用旅行預設費用</strong><small>自動建立：機票、住宿、交通、餐飲、購物、票券、通信、保險、其他</small></span></label>
