@@ -26,6 +26,12 @@
   };
   const escapeHtml = value => String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
   const formatDate = value => value ? new Intl.DateTimeFormat('zh-TW', {year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(`${value}T00:00:00`)) : '';
+  const journeyStatus = row => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const start = row.start_date ? new Date(`${row.start_date}T00:00:00`) : null;
+    const end = row.end_date ? new Date(`${row.end_date}T23:59:59`) : null;
+    return start && start > today ? '規劃中' : end && end < today ? '已完成' : '旅途中';
+  };
   const fieldValue = id => $(id)?.value || '';
   const setFieldValue = (id, value = '') => { if ($(id)) $(id).value = value ?? ''; };
 
@@ -75,6 +81,30 @@
       if ($('journeyPhotoStatus')) $('journeyPhotoStatus').textContent = '照片處理失敗，請重新選擇。';
       alert(error.message);
     }
+  }
+
+  async function searchPlace(place, country, cities = []) {
+    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','泰國':'th','新加坡':'sg','英國':'gb','法國':'fr','美國':'us'};
+    const query = [place, ...cities.slice(0, 2), country].filter(Boolean).join(', ');
+    const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'1', 'accept-language':'zh-TW' });
+    const code = countryCodes[country];
+    if (code) params.set('countrycodes', code);
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+    if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
+    const results = await response.json();
+    return results[0] || null;
+  }
+
+  async function resolvePinLocation(place, country, cities) {
+    if (!place) return { latitude:null, longitude:null, pin_address:'' };
+    let result = await searchPlace(place, country, cities);
+    if (!result) {
+      const address = prompt(`找不到「${place}」的地理位置。\n\n請輸入較完整的實際地址，例如：宜蘭縣羅東鎮民權路。`);
+      if (!address?.trim()) throw new Error('尚未找到代表地點，旅程尚未儲存。');
+      result = await searchPlace(address.trim(), country, cities);
+      if (!result) throw new Error(`仍然找不到「${address.trim()}」，請確認地址後再試一次。`);
+    }
+    return { latitude:Number(result.lat), longitude:Number(result.lon), pin_address:result.display_name || '' };
   }
 
   async function signUp() {
@@ -128,7 +158,7 @@
         <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
             <div><div class="eyebrow">${escapeHtml((row.country || 'TRIP').toUpperCase())}</div><h3>${escapeHtml(row.title)}</h3></div>
-            <span class="status-badge">已保存</span>
+            <span class="status-badge">${journeyStatus(row)}</span>
           </div>
           <p class="journey-date">${formatDate(row.start_date)}－${formatDate(row.end_date)}</p>
           <p class="summary">${escapeHtml(row.summary || '尚未填寫旅程摘要。')}</p>
@@ -140,6 +170,7 @@
       }).join('');
     }
     window.setJourneyData?.(rows);
+    window.setRegionCountryData?.(rows);
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
     if ($('countryCount')) $('countryCount').textContent = String(new Set(rows.map(row => row.country).filter(Boolean)).size);
   }
@@ -166,7 +197,7 @@
     });
     modal?.querySelectorAll('textarea').forEach(input => { input.value = ''; });
     if ($('journeyRegion')) $('journeyRegion').selectedIndex = 0;
-    if ($('journeyCountry')) $('journeyCountry').selectedIndex = 0;
+    window.syncJourneyCountryOptions?.();
     setFieldValue('journeyMainCurrency', 'TWD');
     setFieldValue('journeyDefaultRate', '1');
     if ($('applyExpenseTemplate')) $('applyExpenseTemplate').checked = true;
@@ -188,12 +219,12 @@
     existingCoverPath = row.cover_path || '';
     const details = row.details || {};
     setFieldValue('journeyName', row.title);
-    setFieldValue('journeyCountry', row.country || '其他');
     setFieldValue('journeyStart', row.start_date);
     setFieldValue('journeyEnd', row.end_date);
     setFieldValue('journeyMainCurrency', row.main_currency || 'TWD');
     setFieldValue('journeyDefaultRate', row.default_exchange_rate ?? 1);
     if (details.region) setFieldValue('journeyRegion', details.region);
+    window.syncJourneyCountryOptions?.(row.country || '');
     setFieldValue('journeyPinPlace', details.pin_place);
     const cityGrid = $('cityInputGrid');
     if (cityGrid) {
@@ -242,10 +273,24 @@
     if (!title || !startDate || !endDate) return alert('請填寫旅程名稱、開始日期與結束日期。');
     if (endDate < startDate) return alert('結束日期不能早於開始日期。');
 
+    const country = fieldValue('journeyCountry');
+    const cities = [...document.querySelectorAll('#cityInputGrid input')].map(input => input.value.trim()).filter(Boolean);
+    let location;
+    try {
+      if (fieldValue('journeyPinPlace').trim()) setStatus('正在確認代表地點位置…');
+      location = await resolvePinLocation(fieldValue('journeyPinPlace').trim(), country, cities);
+    } catch (error) {
+      setStatus(error.message, 'error');
+      return alert(error.message);
+    }
+
     const details = {
       region: fieldValue('journeyRegion'),
-      cities: [...document.querySelectorAll('#cityInputGrid input')].map(input => input.value.trim()).filter(Boolean),
+      cities,
       pin_place: fieldValue('journeyPinPlace').trim(),
+      pin_address: location.pin_address,
+      latitude: location.latitude,
+      longitude: location.longitude,
       no_flight: Boolean($('journeyNoFlight')?.checked),
       airline: fieldValue('journeyAirline').trim(),
       outbound: {
@@ -283,7 +328,7 @@
       owner_id: currentUser.id,
       user_id: currentUser.id,
       title,
-      country: $('journeyCountry')?.value || null,
+      country: country || null,
       start_date: startDate,
       end_date: endDate,
       main_currency: $('journeyMainCurrency')?.value || 'TWD',

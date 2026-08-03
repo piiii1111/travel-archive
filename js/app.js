@@ -2,17 +2,55 @@ let journeys = [];
 let map;
 let journeyMarkerLayer;
 let activeJourneyId = null;
+const regionCountryMap = new Map();
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))}
 function displayDate(value){return value?value.replaceAll('-','.'):'未設定'}
 function dateTimeText(value){return value?value.replace('T',' ').replaceAll('-','.'):'未填寫'}
+function canonicalCity(value){return normalizeText(value).replace(/[市]$/u,'')}
 function renderStats(){
   const countries = new Set(); const cities = new Set();
-  journeys.forEach(j=>{countries.add(normalizeText(j.country));(j.cities||[]).forEach(c=>cities.add(normalizeText(c)))});
+  journeys.forEach(j=>{countries.add(normalizeText(j.country));(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${normalizeText(j.country)}|${city}`)})});
   document.getElementById('journeyCount').textContent=journeys.length;
   document.getElementById('countryCount').textContent=[...countries].filter(Boolean).length;
   document.getElementById('cityCount').textContent=[...cities].filter(Boolean).length;
+}
+function setRegionCountryData(rows){
+  regionCountryMap.clear();
+  (rows||[]).forEach(row=>{
+    const region=row.details?.region;const country=normalizeText(row.country);
+    if(!region||!country)return;
+    if(!regionCountryMap.has(region))regionCountryMap.set(region,new Set());
+    regionCountryMap.get(region).add(country);
+  });
+  syncJourneyCountryOptions();
+}
+window.setRegionCountryData=setRegionCountryData;
+function syncJourneyCountryOptions(preferredCountry=''){
+  const region=document.getElementById('journeyRegion')?.value;
+  const countrySelect=document.getElementById('journeyCountry');
+  if(!countrySelect||!region)return;
+  const previous=preferredCountry||countrySelect.value;
+  const countries=[...(regionCountryMap.get(region)||[])].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  countrySelect.innerHTML=countries.length?countries.map(country=>`<option>${escapeHtml(country)}</option>`).join(''):'<option value="">請新增這個地區的第一個國家</option>';
+  if(countries.includes(previous))countrySelect.value=previous;
+}
+function addCustomCountry(){
+  const region=document.getElementById('journeyRegion')?.value;
+  if(!region)return;
+  const country=normalizeText(prompt(`請輸入「${region}」的國家名稱`)||'');
+  if(!country)return;
+  if(!regionCountryMap.has(region))regionCountryMap.set(region,new Set());
+  regionCountryMap.get(region).add(country);
+  syncJourneyCountryOptions(country);
+}
+function addCustomRegion(){
+  const region=normalizeText(prompt('請輸入新的地區分類名稱')||'');
+  if(!region)return;
+  const select=document.getElementById('journeyRegion');
+  if(![...select.options].some(option=>option.value===region))select.add(new Option(region,region));
+  select.value=region;syncJourneyCountryOptions();
 }
 function renderTimeline(){
   const root=document.getElementById('archiveTimelineGrid'); if(!root)return;
@@ -53,7 +91,7 @@ function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:row.latitude,longitude:row.longitude,currency:row.main_currency||'TWD',details,index};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',details,index};
   });
   renderStats();renderTimeline();renderMapPins();
 }
@@ -92,7 +130,7 @@ function renderJourneyInfo(journey){
     <article class="journey-info-card"><div class="journey-info-icon">旅</div><div><div class="eyebrow">基本資料</div><h3>${escapeHtml(journey.title)}</h3><dl><div><dt>日期</dt><dd>${escapeHtml(journey.date)}</dd></div><div><dt>國家</dt><dd>${escapeHtml(journey.country||'未填寫')}</dd></div><div><dt>城市／地區</dt><dd>${escapeHtml(journey.cities.join('、')||'未填寫')}</dd></div></dl></div></article>
     ${d.no_flight?'<article class="journey-info-card"><div class="journey-info-icon">✈</div><div><div class="eyebrow">航班資訊</div><h3>本次旅程沒有搭乘飛機</h3></div></article>':`${flightCard('去程航班',d.outbound)}${flightCard('回程航班',d.inbound)}`}
     <article class="journey-info-card"><div class="journey-info-icon">車</div><div><div class="eyebrow">交通／租車資料</div><h3>${escapeHtml(rental.company||d.transports?.join('、')||'未填寫')}</h3><dl><div><dt>取車</dt><dd>${escapeHtml(`${dateTimeText(rental.pickup_at)}${rental.pickup?`・${rental.pickup}`:''}`)}</dd></div><div><dt>還車</dt><dd>${escapeHtml(`${dateTimeText(rental.return_at)}${rental.return_place?`・${rental.return_place}`:''}`)}</dd></div><div><dt>配備</dt><dd>${escapeHtml(rental.options?.join('、')||'未填寫')}</dd></div></dl></div></article>
-    <article class="journey-info-card"><div class="journey-info-icon">⌖</div><div><div class="eyebrow">代表地點</div><h3>${escapeHtml(d.pin_place||'未填寫')}</h3><dl><div><dt>主要交通</dt><dd>${escapeHtml([...(d.transports||[]),d.other_transport].filter(Boolean).join('、')||'未填寫')}</dd></div></dl></div></article>`;
+    <article class="journey-info-card"><div class="journey-info-icon">⌖</div><div><div class="eyebrow">代表地點</div><h3>${escapeHtml(d.pin_place||'未填寫')}</h3><dl><div><dt>定位地址</dt><dd>${escapeHtml(d.pin_address||'未填寫')}</dd></div><div><dt>主要交通</dt><dd>${escapeHtml([...(d.transports||[]),d.other_transport].filter(Boolean).join('、')||'未填寫')}</dd></div></dl></div></article>`;
 }
 function editActiveJourney(){
   if(!activeJourneyId)return;
