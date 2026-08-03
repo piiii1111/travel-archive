@@ -151,7 +151,7 @@
       <div class="detail-hero has-cover" id="detailHero">
         <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
         <div class="hero-actions" aria-label="旅程操作">
-          <button class="hero-edit" onclick="openJourneyModal()">✎ 編輯旅程資訊</button>
+          <button class="hero-edit" onclick="editActiveJourney()">✎ 編輯旅程資訊</button>
           <button class="hero-delete" onclick="confirm('確定刪除整趟旅程嗎？這會一併刪除所有 Day、Spot、Expense 與相關照片。')">刪除旅程</button>
         </div>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
@@ -453,8 +453,8 @@
         <div class="journey-photo-upload">
           <div class="journey-photo-preview" id="journeyPhotoPreview"></div>
           <div>
-            <input id="journeyPhotoInput" type="file" accept="image/*">
-            <p>照片會顯示於地圖照片 Pin、時光軸卡片與旅程頁 Hero。</p>
+            <input id="journeyPhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+            <p id="journeyPhotoStatus">可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。</p>
           </div>
         </div>
       </div>
@@ -487,16 +487,16 @@
             <span>出發</span>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發日期</label><input type="date" value="2025-10-22"></div>
-            <div class="field"><label>航班編號</label><input value="IT778"></div>
+            <div class="field"><label>出發日期</label><input id="journeyOutboundDate" type="date" value="2025-10-22"></div>
+            <div class="field"><label>航班編號</label><input id="journeyOutboundNumber" value="IT778"></div>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發機場</label><input value="RMQ 台中"></div>
-            <div class="field"><label>抵達機場</label><input value="NGO 中部"></div>
+            <div class="field"><label>出發機場</label><input id="journeyOutboundFrom" value="RMQ 台中"></div>
+            <div class="field"><label>抵達機場</label><input id="journeyOutboundTo" value="NGO 中部"></div>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發時間</label><input type="time" value="18:40"></div>
-            <div class="field"><label>抵達時間</label><input type="time" value="22:30"></div>
+            <div class="field"><label>出發時間</label><input id="journeyOutboundDepartTime" type="time" value="18:40"></div>
+            <div class="field"><label>抵達時間</label><input id="journeyOutboundArriveTime" type="time" value="22:30"></div>
           </div>
         </article>
 
@@ -506,16 +506,16 @@
             <span>返家</span>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發日期</label><input type="date" value="2025-10-27"></div>
-            <div class="field"><label>航班編號</label><input value="IT779"></div>
+            <div class="field"><label>出發日期</label><input id="journeyInboundDate" type="date" value="2025-10-27"></div>
+            <div class="field"><label>航班編號</label><input id="journeyInboundNumber" value="IT779"></div>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發機場</label><input value="NGO 中部"></div>
-            <div class="field"><label>抵達機場</label><input value="RMQ 台中"></div>
+            <div class="field"><label>出發機場</label><input id="journeyInboundFrom" value="NGO 中部"></div>
+            <div class="field"><label>抵達機場</label><input id="journeyInboundTo" value="RMQ 台中"></div>
           </div>
           <div class="two-col">
-            <div class="field"><label>出發時間</label><input type="time" value="13:15"></div>
-            <div class="field"><label>抵達時間</label><input type="time" value="15:25"></div>
+            <div class="field"><label>出發時間</label><input id="journeyInboundDepartTime" type="time" value="13:15"></div>
+            <div class="field"><label>抵達時間</label><input id="journeyInboundArriveTime" type="time" value="15:25"></div>
           </div>
         </article>
       </div>
@@ -527,39 +527,39 @@
       
 
       <div class="check-chips">
-        <label class="check-chip"><input type="checkbox" checked onchange="toggleRentalFields()">租車</label>
-        <label class="check-chip"><input type="checkbox">地鐵／捷運</label>
-        <label class="check-chip"><input type="checkbox">JR／火車／近鐵</label>
-        <label class="check-chip"><input type="checkbox">公車</label>
-        <label class="check-chip"><input type="checkbox">計程車／Uber</label>
-        <label class="check-chip"><input type="checkbox">渡輪／船</label>
-        <label class="check-chip"><input type="checkbox">摩托車</label>
-        <label class="check-chip"><input type="checkbox">自行車</label>
-        <label class="check-chip"><input type="checkbox">步行</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="租車" onchange="toggleRentalFields()">租車</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="地鐵／捷運">地鐵／捷運</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="JR／火車／近鐵">JR／火車／近鐵</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="公車">公車</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="計程車／Uber">計程車／Uber</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="渡輪／船">渡輪／船</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="摩托車">摩托車</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="自行車">自行車</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="步行">步行</label>
       </div>
-      <div class="field" style="margin-top:10px"><label>其他交通方式</label><input placeholder="例如：機場接駁、包車、纜車"></div>
+      <div class="field" style="margin-top:10px"><label>其他交通方式</label><input id="journeyOtherTransport" placeholder="例如：機場接駁、包車、纜車"></div>
 
       <div class="optional-block show" id="rentalFields">
         <div class="field-group" style="margin-bottom:0">
           <h4 class="field-group-title">租車資料</h4>
           
 
-          <div class="field"><label>租車公司</label><input value="E-Drive"></div>
+          <div class="field"><label>租車公司</label><input id="journeyRentalCompany" value="E-Drive"></div>
 
           <div class="two-col">
-            <div class="field"><label>取車地點</label><input value="中部國際機場店"></div>
-            <div class="field"><label>還車地點</label><input value="椿店"></div>
+            <div class="field"><label>取車地點</label><input id="journeyRentalPickup" value="中部國際機場店"></div>
+            <div class="field"><label>還車地點</label><input id="journeyRentalReturn" value="椿店"></div>
           </div>
 
           <div class="two-col">
-            <div class="field"><label>取車日期與時間</label><input type="datetime-local" value="2025-10-23T10:30"></div>
-            <div class="field"><label>還車日期與時間</label><input type="datetime-local" value="2025-10-26T10:30"></div>
+            <div class="field"><label>取車日期與時間</label><input id="journeyRentalPickupAt" type="datetime-local" value="2025-10-23T10:30"></div>
+            <div class="field"><label>還車日期與時間</label><input id="journeyRentalReturnAt" type="datetime-local" value="2025-10-26T10:30"></div>
           </div>
 
           <div class="check-chips">
-            <label class="check-chip"><input type="checkbox" checked>甲地乙還</label>
-            <label class="check-chip"><input type="checkbox" checked>ETC</label>
-            <label class="check-chip"><input type="checkbox" checked>兒童座椅</label>
+            <label class="check-chip"><input type="checkbox" data-rental-option value="甲地乙還">甲地乙還</label>
+            <label class="check-chip"><input type="checkbox" data-rental-option value="ETC">ETC</label>
+            <label class="check-chip"><input type="checkbox" data-rental-option value="兒童座椅">兒童座椅</label>
           </div>
         </div>
       </div>

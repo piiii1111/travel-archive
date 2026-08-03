@@ -1,6 +1,7 @@
 let journeys = [];
 let map;
 let journeyMarkerLayer;
+let activeJourneyId = null;
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
 function renderStats(){
@@ -48,7 +49,8 @@ function renderMapPins(){
 function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(row.cities)?row.cities:[],region:row.region||'其他',year:Number(start.slice(0,4))||'未定',start,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_path||row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:row.latitude,longitude:row.longitude,index};
+    const details=row.details||{};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:row.latitude,longitude:row.longitude,index};
   });
   renderStats();renderTimeline();renderMapPins();
 }
@@ -61,8 +63,12 @@ function switchHomeView(mode,button){
 }
 function openDetail(journeyId){
   const journey=journeys.find(item=>String(item.id)===String(journeyId));
-  if(journey){document.getElementById('detailTitle').textContent=journey.title;document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;document.getElementById('detailMetaText').textContent=journey.date;}
+  if(journey){activeJourneyId=journey.id;document.getElementById('detailTitle').textContent=journey.title;document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;document.getElementById('detailMetaText').textContent=journey.date;document.getElementById('detailHero').style.backgroundImage=`url("${String(journey.photo).replaceAll('"','%22')}")`;}
   document.getElementById('homeView').classList.add('hidden');document.getElementById('detailView').classList.add('active');document.getElementById('dbStatus')?.classList.add('hidden');closeDayMenus();window.scrollTo(0,0)
+}
+function editActiveJourney(){
+  if(!activeJourneyId)return;
+  window.travelArchiveEditJourney?.(activeJourneyId);
 }
 function closeDetail(){document.getElementById('detailView').classList.remove('active');document.getElementById('homeView').classList.remove('hidden');document.getElementById('dbStatus')?.classList.remove('hidden');window.scrollTo(0,0);if(map)setTimeout(()=>map.invalidateSize(),50)}
 function showDay(day,button){document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));button.classList.add('active');document.querySelectorAll('.day-section').forEach(s=>s.classList.toggle('active',String(s.dataset.day)===String(day)))}
@@ -77,6 +83,15 @@ function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
 function switchMode(mode,btn){document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
 function filterJourneys(){const q=normalizeText(document.getElementById('searchInput').value).toLowerCase();const region=document.getElementById('regionFilter').value;document.querySelectorAll('.journey-card').forEach(c=>{const okQ=!q||c.dataset.search.toLowerCase().includes(q);const okR=region==='all'||c.dataset.region===region;c.style.display=okQ&&okR?'':'none'})}
 function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
+function addCityInput(value=''){
+  const grid=document.getElementById('cityInputGrid');
+  if(!grid)return;
+  const input=document.createElement('input');
+  input.placeholder=`城市／地區 ${grid.querySelectorAll('input').length+1}`;
+  input.value=value;
+  grid.appendChild(input);
+  input.focus();
+}
 function toggleFlightFields(){
   const noFlight=document.getElementById('journeyNoFlight')?.checked;
   const fields=document.getElementById('flightFields');

@@ -35,4 +35,15 @@ v1.2.2 修正：
 - 捲動頁面時自動關閉 day-menu。
 - db-status 只在首頁顯示。
 
-本次更新不需要再執行新的 SQL。
+v1.2.2 更新不需要再執行新的 SQL。
+
+v1.2.3 修正：
+- 編輯旅程會回填已保存的城市、航班、交通、租車與照片資料。
+- 只有新增旅程會開啟空白表單。
+- 修正「新增更多城市」按鈕。
+- JPG、PNG、WebP 會自動轉成 WebP 後上傳至 Supabase Storage。
+
+使用 v1.2.3 前，請先在 Supabase SQL 編輯器執行：
+supabase-v1.2.3-migration.sql
+
+這份 SQL 只增加 details 欄位與 journey-covers 照片空間，不會刪除既有資料。
