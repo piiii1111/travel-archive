@@ -9,6 +9,17 @@ function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'
 function displayDate(value){return value?value.replaceAll('-','.'):'未設定'}
 function dateTimeText(value){return value?value.replace('T',' ').replaceAll('-','.'):'未填寫'}
 function canonicalCity(value){return normalizeText(value).replace(/[市]$/u,'')}
+function inferRegionForCountry(country){
+  const value=normalizeText(country);
+  if(['台灣','臺灣'].includes(value))return '台灣';
+  if(['日本','韓國','南韓','大韓民國'].includes(value))return '東北亞';
+  if(['泰國','新加坡','馬來西亞','越南','菲律賓','印尼'].includes(value))return '東南亞';
+  if(['英國','法國','德國','義大利','西班牙'].includes(value))return '歐洲';
+  if(['美國','加拿大','墨西哥'].includes(value))return '美洲';
+  if(['澳洲','紐西蘭'].includes(value))return '大洋洲';
+  return '其他';
+}
+window.inferRegionForCountry=inferRegionForCountry;
 function renderStats(){
   const countries = new Set(); const cities = new Set();
   journeys.forEach(j=>{countries.add(normalizeText(j.country));(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${normalizeText(j.country)}|${city}`)})});
@@ -19,7 +30,7 @@ function renderStats(){
 function setRegionCountryData(rows){
   regionCountryMap.clear();
   (rows||[]).forEach(row=>{
-    const region=row.details?.region;const country=normalizeText(row.country);
+    const country=normalizeText(row.country);const region=row.details?.region||inferRegionForCountry(country);
     if(!region||!country)return;
     if(!regionCountryMap.has(region))regionCountryMap.set(region,new Set());
     regionCountryMap.get(region).add(country);
@@ -68,6 +79,7 @@ function addCustomCurrency(){
 }
 function datePart(value){return String(value||'').slice(0,10)}
 function withDate(value,date){return date?`${date}T${String(value||'').slice(11,16)||'00:00'}`:''}
+function offsetDate(value,days){const date=new Date(`${value}T00:00:00`);date.setDate(date.getDate()+days);return date.toISOString().slice(0,10)}
 function syncJourneyDateFields(source=''){
   const startInput=document.getElementById('journeyStart');const endInput=document.getElementById('journeyEnd');
   const start=startInput?.value;let end=endInput?.value;
@@ -90,8 +102,10 @@ function syncJourneyDateFields(source=''){
     const rentalReturn=document.getElementById('journeyRentalReturnAt');if(rentalReturn)rentalReturn.value=withDate(rentalReturn.value,end);
   }
   if(source==='start'&&document.getElementById('dayEditDate'))document.getElementById('dayEditDate').value=start;
-  const boundedDates=[['journeyInboundDate','回程日期'],['dayEditDate','Day 日期']];
-  boundedDates.forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=start;input.max=end;if(input.value&&(input.value<start||input.value>end))input.value=id==='journeyInboundDate'?end:start}});
+  const inbound=document.getElementById('journeyInboundDate');
+  if(inbound){inbound.min=offsetDate(start,-2);inbound.max=offsetDate(end,2);if(inbound.value&&(inbound.value<inbound.min||inbound.value>inbound.max))inbound.value=end}
+  const dayInput=document.getElementById('dayEditDate');
+  if(dayInput){dayInput.min=start;dayInput.max=end;if(dayInput.value&&(dayInput.value<start||dayInput.value>end))dayInput.value=start}
   [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=`${start}T00:00`;input.max=`${end}T23:59`;if(input.value&&(datePart(input.value)<start||datePart(input.value)>end))input.value=withDate(input.value,id==='journeyRentalReturnAt'?end:start)}});
 }
 function validateJourneyBoundedDate(input,label){
@@ -139,7 +153,7 @@ function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',details,index};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',details,index};
   });
   renderStats();renderTimeline();renderMapPins();
 }
@@ -239,7 +253,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-home-view]').forEach(btn=>btn.addEventListener('click',()=>switchHomeView(btn.dataset.homeView,btn)));
   window.addEventListener('scroll',closeDayMenus,{passive:true,capture:true});
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('.day-menu'))closeDayMenus()});
-  [['journeyInboundDate','回程日期'],['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間'],['dayEditDate','Day 日期']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
+  [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間'],['dayEditDate','Day 日期']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
   document.getElementById('detailHero').style.backgroundImage="url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1600&q=85')";
 });
 

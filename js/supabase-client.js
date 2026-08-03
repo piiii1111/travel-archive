@@ -161,11 +161,11 @@
     if (!rows.length) {
       list.innerHTML = '<div class="expense-empty">資料庫目前沒有旅程。請按右上角「＋ 新增旅程」建立第一趟。</div>';
     } else {
-      list.innerHTML = rows.map(row => {
+      list.innerHTML = rows.slice(0, 5).map(row => {
         const details = row.details || {};
         const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
         return `
-        <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
+        <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
             <div><div class="eyebrow">${escapeHtml((row.country || 'TRIP').toUpperCase())}</div><h3>${escapeHtml(row.title)}</h3></div>
             <span class="status-badge">${journeyStatus(row)}</span>
@@ -235,7 +235,7 @@
     setFieldValue('journeyEnd', row.end_date);
     setFieldValue('journeyMainCurrency', row.main_currency || 'TWD');
     setFieldValue('journeyDefaultRate', row.default_exchange_rate ?? 1);
-    if (details.region) setFieldValue('journeyRegion', details.region);
+    setFieldValue('journeyRegion', details.region || window.inferRegionForCountry?.(row.country) || '其他');
     window.syncJourneyCountryOptions?.(row.country || '');
     setFieldValue('journeyPinPlace', details.pin_place);
     const cityGrid = $('cityInputGrid');
@@ -285,7 +285,7 @@
     const endDate = $('journeyEnd')?.value;
     if (!title || !startDate || !endDate) return alert('請填寫旅程名稱、開始日期與結束日期。');
     if (endDate < startDate) return alert('結束日期不能早於開始日期。');
-    const boundedFields = [['journeyInboundDate','回程日期'],['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']];
+    const boundedFields = [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']];
     for (const [id,label] of boundedFields) {
       const input = $(id);
       if (input?.value && !window.validateJourneyBoundedDate?.(input,label)) return;
