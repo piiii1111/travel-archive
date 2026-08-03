@@ -99,3 +99,11 @@ v1.2.9 修正：
 supabase-v1.2.9-migration.sql
 
 這份 SQL 只新增自訂選項表，不會刪除或修改既有 Journey。
+
+v1.2.10 修正：
+- Journey 總心得儲存至 journeys.summary，首頁摘要與搜尋會自動同步 reviewText。
+- 代表地點支援在第二次地址提示中直接輸入經緯度。
+- 新增倫敦大本鐘／大笨鐘、Big Ben 與西敏宮地標別名，並補強 GB／UK 國家搜尋。
+- 從首頁開啟任何 Journey 時，一律先顯示「旅程資訊」，不沿用上一趟旅程的 Day。
+
+本次更新不需要新增或執行 SQL，只需更新網站檔案。

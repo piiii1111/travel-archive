@@ -84,13 +84,16 @@
   }
 
   async function searchPlace(place, country) {
-    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','英國':'gb','法國':'fr','美國':'us'};
+    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','美國':'us'};
+    const countryNames = {'GB':'United Kingdom','UK':'United Kingdom','英國（UK）':'United Kingdom'};
     const aliases = [
       [/廣安[裏里]海灘|廣安[裏里]沙灘/u, 'Gwangalli Beach, Busan'],
-      [/釜山海雲台|海雲台海灘/u, 'Haeundae Beach, Busan']
+      [/釜山海雲台|海雲台海灘/u, 'Haeundae Beach, Busan'],
+      [/倫敦大[本笨]鐘|大[本笨]鐘|Big Ben/iu, 'Big Ben, London'],
+      [/西敏宮|倫敦國會大廈/u, 'Palace of Westminster, London']
     ];
     const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, place.trim());
-    const query = [normalized, country].filter(Boolean).join(', ');
+    const query = [normalized, countryNames[country] || country].filter(Boolean).join(', ');
     const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'1', 'accept-language':'zh-TW' });
     const code = countryCodes[country];
     if (code) params.set('countrycodes', code);
@@ -100,17 +103,25 @@
     return results[0] || null;
   }
 
+  function parseCoordinates(value) {
+    const match = String(value || '').trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/);
+    if (!match) return null;
+    const latitude = Number(match[1]);
+    const longitude = Number(match[2]);
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+    return { latitude, longitude, pin_address:`${latitude}, ${longitude}` };
+  }
+
   async function resolvePinLocation(place, country, cities) {
     if (!place) return { latitude:null, longitude:null, pin_address:'' };
-    const coordinateMatch = place.trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*[,，]\s*(-?\d{1,3}(?:\.\d+)?)$/);
-    if (coordinateMatch) {
-      const latitude = Number(coordinateMatch[1]); const longitude = Number(coordinateMatch[2]);
-      if (latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180) return { latitude, longitude, pin_address:`${latitude}, ${longitude}` };
-    }
+    const directCoordinates = parseCoordinates(place);
+    if (directCoordinates) return directCoordinates;
     let result = await searchPlace(place, country);
     if (!result) {
       const address = prompt(`找不到「${place}」的地理位置。\n\n請輸入較完整的實際地址，例如：宜蘭縣羅東鎮民權路。`);
       if (!address?.trim()) throw new Error('尚未找到代表地點，旅程尚未儲存。');
+      const fallbackCoordinates = parseCoordinates(address);
+      if (fallbackCoordinates) return fallbackCoordinates;
       result = await searchPlace(address.trim(), country);
       if (!result) throw new Error(`仍然找不到「${address.trim()}」，請確認地址後再試一次。`);
     }
@@ -163,7 +174,7 @@
     } else {
       list.innerHTML = rows.slice(0, 5).map(row => {
         const details = row.details || {};
-        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
+        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
         return `
         <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
@@ -199,6 +210,23 @@
     if (optionError) console.warn('讀取自訂選項失敗，請確認已執行 v1.2.9 SQL：', optionError.message);
     renderJourneys(rows, optionRows || []);
     setStatus(`已載入 ${data?.length || 0} 趟旅程`, 'success');
+  }
+
+  async function saveJourneySummary(journeyId, summary) {
+    if (!currentUser || !journeyId) return false;
+    setStatus('正在儲存旅程總心得…');
+    const { error } = await client.from('journeys').update({
+      summary: summary || null,
+      updated_at: new Date().toISOString()
+    }).eq('id', journeyId);
+    if (error) {
+      console.error(error);
+      setStatus(`總心得儲存失敗：${error.message}`, 'error');
+      alert(`總心得儲存失敗：${error.message}`);
+      return false;
+    }
+    await loadJourneys();
+    return true;
   }
 
   function resetJourneyForm() {
@@ -400,6 +428,7 @@
     window.travelArchiveEditJourney = editJourney;
     window.travelArchiveDeleteJourney = deleteJourney;
     window.saveJourneyOption = saveJourneyOption;
+    window.saveJourneySummary = saveJourneySummary;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {

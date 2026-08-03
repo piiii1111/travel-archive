@@ -657,17 +657,11 @@
       document.getElementById('reviewModal')?.classList.add('show');
       document.body.classList.add('modal-open');
     }
-    function deleteReview(event){
+    async function deleteReview(event){
       event?.preventDefault();
       event?.stopPropagation();
       if(!window.confirm('確定刪除這趟旅行的總心得嗎？')) return;
-      const emptyText='尚未新增這趟旅行的總心得。';
-      const review=document.getElementById('reviewText');
-      const summary=document.getElementById('journeySummary');
-      const editor=document.getElementById('reviewEditor');
-      if(review) review.textContent=emptyText;
-      if(summary) summary.textContent=emptyText;
-      if(editor) editor.value='';
+      await window.saveActiveJourneyReview?.('');
     }
   </script>
 

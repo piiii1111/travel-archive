@@ -176,7 +176,7 @@ function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',details,index};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',summary:row.summary||'',details,index};
   });
   renderStats();renderTimeline();renderMapPins();
   if(document.getElementById('detailView')?.classList.contains('active')&&activeJourneyId){
@@ -193,7 +193,12 @@ function switchHomeView(mode,button){
 }
 function openDetail(journeyId){
   const journey=journeys.find(item=>String(item.id)===String(journeyId));
-  if(journey){activeJourneyId=journey.id;renderJourneyDetail(journey)}
+  if(journey){
+    activeJourneyId=journey.id;
+    renderJourneyDetail(journey);
+    const infoTab=document.querySelector('.journey-info-tab');
+    if(infoTab)showDay('info',infoTab);
+  }
   document.getElementById('homeView').classList.add('hidden');document.getElementById('detailView').classList.add('active');document.getElementById('dbStatus')?.classList.add('hidden');closeDayMenus();window.scrollTo(0,0)
 }
 function renderJourneyDetail(journey){
@@ -207,6 +212,11 @@ function renderJourneyDetail(journey){
     const start=journey.start?new Date(`${journey.start}T00:00:00`):null;
     const end=journey.end?new Date(`${journey.end}T23:59:59`):null;
     document.getElementById('heroStatusBadge').textContent=start&&start>today?'規劃中':end&&end<today?'已完成':'旅途中';
+    const emptyReview='尚未新增這趟旅行的總心得。';
+    const reviewText=document.getElementById('reviewText');
+    const reviewEditor=document.getElementById('reviewEditor');
+    if(reviewText)reviewText.textContent=journey.summary||emptyReview;
+    if(reviewEditor)reviewEditor.value=journey.summary||'';
     renderJourneyInfo(journey);
 }
 function renderJourneyInfo(journey){
@@ -261,15 +271,16 @@ function toggleFlightFields(){
   fields.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=Boolean(noFlight)});
 }
 function saveJourneyPrototype(){closeModal('journeyModal');alert('Prototype：介面確認用，尚未寫入資料庫。')}
-function saveReview(){
+async function saveActiveJourneyReview(value){
+  if(!activeJourneyId)return false;
+  const saved=await window.saveJourneySummary?.(activeJourneyId,value);
+  if(saved)closeModal('reviewModal');
+  return Boolean(saved);
+}
+window.saveActiveJourneyReview=saveActiveJourneyReview;
+async function saveReview(){
   const value=document.getElementById('reviewEditor')?.value.trim() || '';
-  const reviewText=document.getElementById('reviewText');
-  const journeySummary=document.getElementById('journeySummary');
-  if(reviewText) reviewText.textContent=value;
-  if(journeySummary) journeySummary.textContent=value;
-  const nagoya=journeys.find(j=>j.id==='nagoya');
-  if(nagoya) nagoya.review=value;
-  closeModal('reviewModal');
+  await saveActiveJourneyReview(value);
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
