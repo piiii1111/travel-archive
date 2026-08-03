@@ -88,3 +88,14 @@ v1.2.6 修正：
 - 代表地點支援直接輸入經緯度，並改善韓國／釜山景點與地址搜尋。
 
 本次更新不需要新增或執行 SQL，只需更新網站檔案。
+
+v1.2.9 修正：
+- Hero 刪除旅程改用真實 Supabase 刪除流程，成功後自動回首頁。
+- 新增 journey_options，保存尚未建立 Journey 的自訂地區、國家與貨幣。
+- 未選租車時不顯示租車資料卡；主要交通只在代表地點卡顯示。
+- Journey Detail 編輯儲存後自動刷新 Journey Info，不需重新整理或返回首頁。
+
+使用 v1.2.9 前，請先在 Supabase SQL 編輯器執行：
+supabase-v1.2.9-migration.sql
+
+這份 SQL 只新增自訂選項表，不會刪除或修改既有 Journey。

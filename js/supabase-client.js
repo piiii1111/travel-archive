@@ -155,7 +155,7 @@
     setStatus('等待登入');
   }
 
-  function renderJourneys(rows) {
+  function renderJourneys(rows, optionRows = []) {
     const list = document.querySelector('.journey-list');
     if (!list) return;
     if (!rows.length) {
@@ -180,8 +180,8 @@
       }).join('');
     }
     window.setJourneyData?.(rows);
-    window.setRegionCountryData?.(rows);
-    window.setCurrencyData?.(rows);
+    window.setRegionCountryData?.(rows, optionRows);
+    window.setCurrencyData?.(rows, optionRows);
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
   }
 
@@ -195,7 +195,9 @@
       return;
     }
     const rows = await Promise.all((data || []).map(resolveCoverUrl));
-    renderJourneys(rows);
+    const { data: optionRows, error: optionError } = await client.from('journey_options').select('*').order('created_at', { ascending: true });
+    if (optionError) console.warn('讀取自訂選項失敗，請確認已執行 v1.2.9 SQL：', optionError.message);
+    renderJourneys(rows, optionRows || []);
     setStatus(`已載入 ${data?.length || 0} 趟旅程`, 'success');
   }
 
@@ -270,11 +272,20 @@
     openJourneyForEdit(await resolveCoverUrl(data));
   }
 
-  async function deleteJourney(id) {
+  async function deleteJourney(id, options = {}) {
     if (!confirm('確定刪除這趟旅程嗎？此動作之後會一併刪除相關 Day、Spot 與費用。')) return;
     const { error } = await client.from('journeys').delete().eq('id', id);
     if (error) return alert(`刪除失敗：${error.message}`);
+    if (options.returnHome) window.closeDetail?.();
     await loadJourneys();
+  }
+
+  async function saveJourneyOption(optionType, value, parentValue = '') {
+    if (!currentUser) return false;
+    const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value };
+    const { error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' });
+    if (error) { console.error(error); return false; }
+    return true;
   }
 
   async function saveJourney() {
@@ -387,6 +398,8 @@
     // Replace prototype-only save with real Supabase save.
     window.saveJourneyPrototype = saveJourney;
     window.travelArchiveEditJourney = editJourney;
+    window.travelArchiveDeleteJourney = deleteJourney;
+    window.saveJourneyOption = saveJourneyOption;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {
