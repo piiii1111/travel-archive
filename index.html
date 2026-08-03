@@ -534,6 +534,7 @@
         <label class="check-chip"><input type="checkbox" data-journey-transport value="計程車／Uber">計程車／Uber</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="渡輪／船">渡輪／船</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="摩托車">摩托車</label>
+        <label class="check-chip"><input type="checkbox" data-journey-transport value="自有車">自有車</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="自行車">自行車</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="步行">步行</label>
       </div>
@@ -606,6 +607,15 @@
     <div class="field">
       <label>總心得</label>
       <textarea id="reviewEditor" rows="8">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</textarea>
+    </div>
+    <div class="field review-tag-field">
+      <label>旅遊標籤</label>
+      <p class="field-group-note">例如：溫泉、海邊、爬山、自行車。輸入後按 Enter 或「新增」。</p>
+      <div class="review-tag-input-row">
+        <input id="reviewTagInput" type="text" placeholder="輸入旅遊屬性" onkeydown="handleReviewTagKey(event)">
+        <button type="button" class="secondary" onclick="addReviewTag()">＋ 新增</button>
+      </div>
+      <div class="review-tag-list" id="reviewTagList"></div>
     </div>
     <div class="modal-actions">
       <button class="secondary" onclick="closeModal('reviewModal')">取消</button>

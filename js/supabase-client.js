@@ -174,7 +174,9 @@
     } else {
       list.innerHTML = rows.slice(0, 5).map(row => {
         const details = row.details || {};
-        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
+        const tags = Array.isArray(details.tags) ? details.tags : [];
+        const summaryText = [row.summary || '', tags.join('、')].filter(Boolean).join(' · ') || '尚未填寫旅程摘要。';
+        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${tags.join(' ')} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
         return `
         <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
@@ -182,7 +184,7 @@
             <span class="status-badge">${journeyStatus(row)}</span>
           </div>
           <p class="journey-date">${formatDate(row.start_date)}－${formatDate(row.end_date)}</p>
-          <p class="summary">${escapeHtml(row.summary || '尚未填寫旅程摘要。')}</p>
+          <p class="summary">${escapeHtml(summaryText)}</p>
           <div class="journey-bottom">
             <span>${escapeHtml(row.main_currency || 'TWD')}</span>
             <div class="icon-actions"><button type="button" aria-label="編輯旅程" data-edit-journey="${row.id}">✎</button><button type="button" aria-label="刪除旅程" data-delete-journey="${row.id}">⌫</button></div>
@@ -212,13 +214,25 @@
     setStatus(`已載入 ${data?.length || 0} 趟旅程`, 'success');
   }
 
-  async function saveJourneySummary(journeyId, summary) {
+  async function saveJourneySummary(journeyId, summary, tags = null) {
     if (!currentUser || !journeyId) return false;
     setStatus('正在儲存旅程總心得…');
-    const { error } = await client.from('journeys').update({
+    let details;
+    if (Array.isArray(tags)) {
+      const { data, error: readError } = await client.from('journeys').select('details').eq('id', journeyId).single();
+      if (readError) {
+        setStatus(`旅遊標籤讀取失敗：${readError.message}`, 'error');
+        alert(`旅遊標籤讀取失敗：${readError.message}`);
+        return false;
+      }
+      details = { ...(data?.details || {}), tags };
+    }
+    const payload = {
       summary: summary || null,
       updated_at: new Date().toISOString()
-    }).eq('id', journeyId);
+    };
+    if (details) payload.details = details;
+    const { error } = await client.from('journeys').update(payload).eq('id', journeyId);
     if (error) {
       console.error(error);
       setStatus(`總心得儲存失敗：${error.message}`, 'error');

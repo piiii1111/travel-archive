@@ -2,6 +2,7 @@ let journeys = [];
 let map;
 let journeyMarkerLayer;
 let activeJourneyId = null;
+let reviewTags = [];
 const regionCountryMap = new Map();
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
@@ -217,6 +218,8 @@ function renderJourneyDetail(journey){
     const reviewEditor=document.getElementById('reviewEditor');
     if(reviewText)reviewText.textContent=journey.summary||emptyReview;
     if(reviewEditor)reviewEditor.value=journey.summary||'';
+    reviewTags=Array.isArray(journey.details?.tags)?[...journey.details.tags]:[];
+    renderReviewTags();
     renderJourneyInfo(journey);
 }
 function renderJourneyInfo(journey){
@@ -271,9 +274,25 @@ function toggleFlightFields(){
   fields.querySelectorAll('input,select,textarea').forEach(el=>{el.disabled=Boolean(noFlight)});
 }
 function saveJourneyPrototype(){closeModal('journeyModal');alert('Prototype：介面確認用，尚未寫入資料庫。')}
+function renderReviewTags(){
+  const list=document.getElementById('reviewTagList');
+  if(!list)return;
+  list.innerHTML=reviewTags.map((tag,index)=>`<span class="review-tag-item">${escapeHtml(tag)}<button type="button" aria-label="刪除 ${escapeHtml(tag)}" onclick="removeReviewTag(${index})">×</button></span>`).join('');
+}
+function addReviewTag(){
+  const input=document.getElementById('reviewTagInput');
+  const tag=normalizeText(input?.value);
+  if(!tag)return;
+  if(!reviewTags.some(item=>item.toLowerCase()===tag.toLowerCase()))reviewTags.push(tag);
+  if(input)input.value='';
+  renderReviewTags();
+  input?.focus();
+}
+function removeReviewTag(index){reviewTags.splice(index,1);renderReviewTags()}
+function handleReviewTagKey(event){if(event.key==='Enter'){event.preventDefault();addReviewTag()}}
 async function saveActiveJourneyReview(value){
   if(!activeJourneyId)return false;
-  const saved=await window.saveJourneySummary?.(activeJourneyId,value);
+  const saved=await window.saveJourneySummary?.(activeJourneyId,value,reviewTags);
   if(saved)closeModal('reviewModal');
   return Boolean(saved);
 }
