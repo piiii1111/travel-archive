@@ -56,6 +56,14 @@ v1.2.4 修正：
 
 本次更新不需要新增或執行 SQL，只需更新網站檔案。
 
+v1.2.8 修正：
+- journeyInboundDate 完全移除日期範圍限制，預設仍帶入 journeyEnd。
+- countryCount 統一由完整 Journey 資料計算，並正規化台灣／臺灣、韓國／南韓等名稱。
+- photo-pin 改用 background-size: cover 滿版裁切，不再受 img 樣式影響。
+- 延續舊 Journey 國家→地區推斷，修正舊台灣旅程代表地點更新。
+
+本次更新不需要新增或執行 SQL，只需更新網站檔案。
+
 v1.2.7 修正：
 - 回程日期改為 Journey 開始日前 2 天至結束日後 2 天的寬鬆範圍，預設仍帶入結束日。
 - 地圖 photo-pin 的直式與橫式照片都會置中裁切、滿版填滿圓形。

@@ -183,7 +183,6 @@
     window.setRegionCountryData?.(rows);
     window.setCurrencyData?.(rows);
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
-    if ($('countryCount')) $('countryCount').textContent = String(new Set(rows.map(row => row.country).filter(Boolean)).size);
   }
 
   async function loadJourneys() {

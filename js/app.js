@@ -9,6 +9,12 @@ function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'
 function displayDate(value){return value?value.replaceAll('-','.'):'未設定'}
 function dateTimeText(value){return value?value.replace('T',' ').replaceAll('-','.'):'未填寫'}
 function canonicalCity(value){return normalizeText(value).replace(/[市]$/u,'')}
+function canonicalCountry(value){
+  const country=normalizeText(value);
+  if(['台灣','臺灣','Taiwan'].includes(country))return '台灣';
+  if(['韓國','南韓','大韓民國','South Korea','Korea'].includes(country))return '韓國';
+  return country;
+}
 function inferRegionForCountry(country){
   const value=normalizeText(country);
   if(['台灣','臺灣'].includes(value))return '台灣';
@@ -22,7 +28,7 @@ function inferRegionForCountry(country){
 window.inferRegionForCountry=inferRegionForCountry;
 function renderStats(){
   const countries = new Set(); const cities = new Set();
-  journeys.forEach(j=>{countries.add(normalizeText(j.country));(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${normalizeText(j.country)}|${city}`)})});
+  journeys.forEach(j=>{const country=canonicalCountry(j.country);if(country)countries.add(country);(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${country}|${city}`)})});
   document.getElementById('journeyCount').textContent=journeys.length;
   document.getElementById('countryCount').textContent=[...countries].filter(Boolean).length;
   document.getElementById('cityCount').textContent=[...cities].filter(Boolean).length;
@@ -103,7 +109,7 @@ function syncJourneyDateFields(source=''){
   }
   if(source==='start'&&document.getElementById('dayEditDate'))document.getElementById('dayEditDate').value=start;
   const inbound=document.getElementById('journeyInboundDate');
-  if(inbound){inbound.min=offsetDate(start,-2);inbound.max=offsetDate(end,2);if(inbound.value&&(inbound.value<inbound.min||inbound.value>inbound.max))inbound.value=end}
+  if(inbound){inbound.removeAttribute('min');inbound.removeAttribute('max')}
   const dayInput=document.getElementById('dayEditDate');
   if(dayInput){dayInput.min=start;dayInput.max=end;if(dayInput.value&&(dayInput.value<start||dayInput.value>end))dayInput.value=start}
   [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=`${start}T00:00`;input.max=`${end}T23:59`;if(input.value&&(datePart(input.value)<start||datePart(input.value)>end))input.value=withDate(input.value,id==='journeyRentalReturnAt'?end:start)}});
@@ -144,7 +150,8 @@ function renderMapPins(){
   const points=[];
   journeys.forEach((j,index)=>{
     const coords=journeyCoordinates(j,index);points.push(coords);
-    const icon=L.divIcon({className:'photo-pin-wrap',html:`<button class="photo-pin" type="button" aria-label="開啟 ${j.title}"><img src="${j.photo}" alt="${j.title}"></button>`,iconSize:[48,48],iconAnchor:[24,24]});
+    const pinPhoto=escapeHtml(String(j.photo).replaceAll("'",'%27'));
+    const icon=L.divIcon({className:'photo-pin-wrap',html:`<button class="photo-pin" type="button" aria-label="開啟 ${escapeHtml(j.title)}"><span class="photo-pin-image" style="background-image:url('${pinPhoto}')"></span></button>`,iconSize:[48,48],iconAnchor:[24,24]});
     L.marker(coords,{icon}).addTo(journeyMarkerLayer).on('click',()=>openDetail(j.id));
   });
   if(points.length)map.fitBounds(points,{padding:[45,45],maxZoom:6});
