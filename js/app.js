@@ -4,6 +4,9 @@ let journeyMarkerLayer;
 let activeJourneyId = null;
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
+function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))}
+function displayDate(value){return value?value.replaceAll('-','.'):'未設定'}
+function dateTimeText(value){return value?value.replace('T',' ').replaceAll('-','.'):'未填寫'}
 function renderStats(){
   const countries = new Set(); const cities = new Set();
   journeys.forEach(j=>{countries.add(normalizeText(j.country));(j.cities||[]).forEach(c=>cities.add(normalizeText(c)))});
@@ -50,7 +53,7 @@ function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:row.latitude,longitude:row.longitude,index};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||'其他',year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:row.latitude,longitude:row.longitude,currency:row.main_currency||'TWD',details,index};
   });
   renderStats();renderTimeline();renderMapPins();
 }
@@ -63,8 +66,33 @@ function switchHomeView(mode,button){
 }
 function openDetail(journeyId){
   const journey=journeys.find(item=>String(item.id)===String(journeyId));
-  if(journey){activeJourneyId=journey.id;document.getElementById('detailTitle').textContent=journey.title;document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;document.getElementById('detailMetaText').textContent=journey.date;document.getElementById('detailHero').style.backgroundImage=`url("${String(journey.photo).replaceAll('"','%22')}")`;}
+  if(journey){
+    activeJourneyId=journey.id;
+    document.getElementById('detailTitle').textContent=journey.title;
+    document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;
+    const days=journey.start&&journey.end?Math.max(1,Math.round((new Date(`${journey.end}T00:00:00`)-new Date(`${journey.start}T00:00:00`))/86400000)+1):null;
+    document.getElementById('detailMetaText').textContent=`${journey.date}${days?`　｜　${days} 天 ${Math.max(0,days-1)} 夜`:''}${journey.details.pin_place?`　｜　代表地點：${journey.details.pin_place}`:''}`;
+    document.getElementById('detailHero').style.backgroundImage=`url("${String(journey.photo).replaceAll('"','%22')}")`;
+    document.getElementById('heroCurrencyBadge').textContent=journey.currency;
+    const today=new Date();today.setHours(0,0,0,0);
+    const start=journey.start?new Date(`${journey.start}T00:00:00`):null;
+    const end=journey.end?new Date(`${journey.end}T23:59:59`):null;
+    document.getElementById('heroStatusBadge').textContent=start&&start>today?'規劃中':end&&end<today?'已完成':'旅途中';
+    renderJourneyInfo(journey);
+  }
   document.getElementById('homeView').classList.add('hidden');document.getElementById('detailView').classList.add('active');document.getElementById('dbStatus')?.classList.add('hidden');closeDayMenus();window.scrollTo(0,0)
+}
+function renderJourneyInfo(journey){
+  const root=document.querySelector('.journey-info-grid');if(!root)return;
+  const d=journey.details||{};
+  const route=(flight)=>`${flight?.from||'未填寫'} → ${flight?.to||'未填寫'}`;
+  const flightCard=(label,flight)=>`<article class="journey-info-card"><div class="journey-info-icon">✈</div><div><div class="eyebrow">${label}</div><h3>${escapeHtml(route(flight))}</h3><dl><div><dt>航班</dt><dd>${escapeHtml([d.airline,flight?.number].filter(Boolean).join(' ')||'未填寫')}</dd></div><div><dt>時間</dt><dd>${escapeHtml([flight?.date,flight?.departTime,flight?.arriveTime].filter(Boolean).join('　')||'未填寫')}</dd></div><div><dt>機場</dt><dd>${escapeHtml(route(flight))}</dd></div></dl></div></article>`;
+  const rental=d.rental||{};
+  root.innerHTML=`
+    <article class="journey-info-card"><div class="journey-info-icon">旅</div><div><div class="eyebrow">基本資料</div><h3>${escapeHtml(journey.title)}</h3><dl><div><dt>日期</dt><dd>${escapeHtml(journey.date)}</dd></div><div><dt>國家</dt><dd>${escapeHtml(journey.country||'未填寫')}</dd></div><div><dt>城市／地區</dt><dd>${escapeHtml(journey.cities.join('、')||'未填寫')}</dd></div></dl></div></article>
+    ${d.no_flight?'<article class="journey-info-card"><div class="journey-info-icon">✈</div><div><div class="eyebrow">航班資訊</div><h3>本次旅程沒有搭乘飛機</h3></div></article>':`${flightCard('去程航班',d.outbound)}${flightCard('回程航班',d.inbound)}`}
+    <article class="journey-info-card"><div class="journey-info-icon">車</div><div><div class="eyebrow">交通／租車資料</div><h3>${escapeHtml(rental.company||d.transports?.join('、')||'未填寫')}</h3><dl><div><dt>取車</dt><dd>${escapeHtml(`${dateTimeText(rental.pickup_at)}${rental.pickup?`・${rental.pickup}`:''}`)}</dd></div><div><dt>還車</dt><dd>${escapeHtml(`${dateTimeText(rental.return_at)}${rental.return_place?`・${rental.return_place}`:''}`)}</dd></div><div><dt>配備</dt><dd>${escapeHtml(rental.options?.join('、')||'未填寫')}</dd></div></dl></div></article>
+    <article class="journey-info-card"><div class="journey-info-icon">⌖</div><div><div class="eyebrow">代表地點</div><h3>${escapeHtml(d.pin_place||'未填寫')}</h3><dl><div><dt>主要交通</dt><dd>${escapeHtml([...(d.transports||[]),d.other_transport].filter(Boolean).join('、')||'未填寫')}</dd></div></dl></div></article>`;
 }
 function editActiveJourney(){
   if(!activeJourneyId)return;

@@ -121,8 +121,11 @@
     if (!rows.length) {
       list.innerHTML = '<div class="expense-empty">資料庫目前沒有旅程。請按右上角「＋ 新增旅程」建立第一趟。</div>';
     } else {
-      list.innerHTML = rows.map(row => `
-        <article class="journey-card" role="button" tabindex="0" data-region="其他" data-search="${escapeHtml(`${row.country || ''} ${row.title || ''}`)}" onclick="openDetail('${row.id}')">
+      list.innerHTML = rows.map(row => {
+        const details = row.details || {};
+        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
+        return `
+        <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
             <div><div class="eyebrow">${escapeHtml((row.country || 'TRIP').toUpperCase())}</div><h3>${escapeHtml(row.title)}</h3></div>
             <span class="status-badge">已保存</span>
@@ -133,7 +136,8 @@
             <span>${escapeHtml(row.main_currency || 'TWD')}</span>
             <div class="icon-actions"><button type="button" aria-label="編輯旅程" data-edit-journey="${row.id}">✎</button><button type="button" aria-label="刪除旅程" data-delete-journey="${row.id}">⌫</button></div>
           </div>
-        </article>`).join('');
+        </article>`;
+      }).join('');
     }
     window.setJourneyData?.(rows);
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
@@ -316,7 +320,7 @@
       const deleteButton = event.target.closest('[data-delete-journey]');
       if (editButton) { event.stopPropagation(); editJourney(editButton.dataset.editJourney); }
       if (deleteButton) { event.stopPropagation(); deleteJourney(deleteButton.dataset.deleteJourney); }
-    });
+    }, true);
 
     // Replace prototype-only save with real Supabase save.
     window.saveJourneyPrototype = saveJourney;

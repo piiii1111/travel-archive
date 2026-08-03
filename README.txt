@@ -47,3 +47,11 @@ v1.2.3 修正：
 supabase-v1.2.3-migration.sql
 
 這份 SQL 只增加 details 欄位與 journey-covers 照片空間，不會刪除既有資料。
+
+v1.2.4 修正：
+- 首頁搜尋「台灣」或「臺灣」都能找到台灣旅程。
+- 首頁刪除按鈕會直接顯示確認視窗，不會先開啟 Journey Detail。
+- Journey Info 改為顯示目前旅程已保存的真實資料。
+- Hero 狀態依日期顯示「規劃中／旅途中／已完成」。
+
+本次更新不需要新增或執行 SQL，只需更新網站檔案。
