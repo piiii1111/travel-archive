@@ -356,6 +356,10 @@
           <aside class="budget-summary-panel">
             <div class="eyebrow">CATEGORY SUMMARY</div><h3>類別統計</h3>
             <div id="categorySummary" class="category-summary"></div>
+            <div class="payer-summary-block">
+              <div class="eyebrow">PAYMENT SOURCE</div><h3>付款來源統計</h3>
+              <div id="payerSummary" class="category-summary"></div>
+            </div>
             <div class="master-data-panel">
               <div class="master-tabs"><button class="active" type="button" data-master-tab="category" onclick="switchMasterTab('category',this)">類別</button><button type="button" data-master-tab="currency" onclick="switchMasterTab('currency',this)">幣別</button><button type="button" data-master-tab="payer" onclick="switchMasterTab('payer',this)">付款來源</button></div>
               <div id="masterDataList" class="master-data-list"></div>
@@ -704,6 +708,13 @@
       };
       const sectionForTab = tab => document.querySelector(`.day-section[data-day-id="${CSS.escape(tab.dataset.dayId)}"]`);
       const tabForSection = section => tabsWrap.querySelector(`.day-tab[data-day-id="${CSS.escape(section.dataset.dayId)}"]`);
+      const clearDayDragState = () => {
+        getDayTabs().forEach(tab => {
+          tab.classList.remove('dragging','day-dragging','day-drop-target');
+          tab.blur();
+        });
+        draggedTab = null;
+      };
 
       function initializeDayRecords(){
         getDayTabs().forEach((tab, index) => {
@@ -871,14 +882,17 @@
         event.stopImmediatePropagation();
         // Dragging exchanges whole-day content. Dates are reassigned continuously by the new position.
         renumberCurrentOrder({assignContinuousDates:true});
+        clearDayDragState();
         suppressClickUntil = Date.now() + 350;
       }, true);
 
       tabsWrap.addEventListener('dragend', event => {
         event.stopImmediatePropagation();
-        getDayTabs().forEach(tab => tab.classList.remove('day-dragging','day-drop-target'));
-        draggedTab = null;
+        clearDayDragState();
       }, true);
+
+      tabsWrap.addEventListener('pointercancel', clearDayDragState, true);
+      document.addEventListener('visibilitychange', () => { if(document.hidden) clearDayDragState(); });
 
       tabsWrap.addEventListener('click', event => {
         if (Date.now() < suppressClickUntil) {

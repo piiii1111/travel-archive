@@ -246,7 +246,13 @@ function deleteActiveJourney(){
   window.travelArchiveDeleteJourney?.(activeJourneyId,{returnHome:true});
 }
 function closeDetail(){document.getElementById('detailView').classList.remove('active');document.getElementById('homeView').classList.remove('hidden');document.getElementById('dbStatus')?.classList.remove('hidden');window.scrollTo(0,0);if(map)setTimeout(()=>map.invalidateSize(),50)}
-function showDay(day,button){document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));button.classList.add('active');document.querySelectorAll('.day-section').forEach(s=>s.classList.toggle('active',String(s.dataset.day)===String(day)))}
+function showDay(day,button){
+  document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));
+  button.classList.add('active');
+  document.querySelectorAll('.day-section').forEach(s=>s.classList.toggle('active',String(s.dataset.day)===String(day)));
+  const addDayButton=document.querySelector('.empty-add-day');
+  if(addDayButton)addDayButton.hidden=['info','budget'].includes(String(day));
+}
 function openJourneyModal(){document.getElementById('journeyModal')?.classList.add('show');document.body.classList.add('modal-open')}
 function openDayModal(){document.getElementById('dayModal')?.classList.add('show')}
 function openSpotModal(){document.getElementById('spotModal')?.classList.add('show')}
@@ -470,6 +476,11 @@ function renderBudget(){
   const entries=Object.entries(categories).filter(([,value])=>value>0).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...entries.map(([,v])=>v),1);
   document.getElementById('categorySummary').innerHTML=entries.length?entries.map(([name,value])=>`<div class="category-row"><div><b>${name}</b><span>NT$ ${numberText(value)}</span></div><div class="category-bar"><i style="width:${Math.max(4,value/max*100)}%"></i></div></div>`).join(''):'<p class="summary-empty">尚無可統計的消費。</p>';
+
+  const payers=prototypeExpenses.filter(e=>e.payer && e.amount!==null).reduce((acc,e)=>{acc[e.payer]=(acc[e.payer]||0)+expenseTwd(e);return acc},{});
+  const payerEntries=Object.entries(payers).filter(([,value])=>value>0).sort((a,b)=>b[1]-a[1]);
+  const payerMax=Math.max(...payerEntries.map(([,value])=>value),1);
+  document.getElementById('payerSummary').innerHTML=payerEntries.length?payerEntries.map(([name,value])=>`<div class="category-row"><div><b>${name}</b><span>NT$ ${numberText(value)}</span></div><div class="category-bar"><i style="width:${Math.max(4,value/payerMax*100)}%"></i></div></div>`).join(''):'<p class="summary-empty">尚無付款來源資料。</p>';
 }
 function showMissingExpenses(){
   budgetFilterMode=budgetFilterMode==='missing'?'all':'missing';
@@ -591,7 +602,7 @@ function initDayDragging(){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
-  syncMasterSelects();renderMasterData();renderBudget();initDayDragging();
+  syncMasterSelects();renderMasterData();renderBudget();
   const rate=document.getElementById('journeyRate');if(rate){rate.value=journeySettings.defaultRate;rate.oninput=syncJourneyRateFromBudget;}
   ['expenseAmount','expenseRate'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateConvertedPreview));
 });
