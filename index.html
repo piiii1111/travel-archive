@@ -75,6 +75,7 @@
     </div>
     <div class="header-tools">
       <span class="current-user" id="currentUserText">ohmygodetet@gmail.com</span>
+      <button class="header-action master-data-action" type="button" onclick="openMasterDataModal()">管理</button>
       <button class="header-action logout-action" id="logoutButton" type="button">登出</button>
       <button class="header-action" onclick="openJourneyModal()">＋ 新增旅程</button>
     </div>
@@ -625,6 +626,23 @@
       <button class="secondary" onclick="closeModal('reviewModal')">取消</button>
       <button class="primary" onclick="saveReview()">儲存心得</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="masterDataModal" onclick="closeOnBackdrop(event,'masterDataModal')">
+  <div class="modal master-data-modal">
+    <div class="modal-head">
+      <div><div class="eyebrow">MASTER DATA</div><h3>資料管理</h3></div>
+      <button type="button" onclick="closeModal('masterDataModal')">×</button>
+    </div>
+    <p class="master-data-intro">當下可以快速新增；名稱修改會同步既有 Journey。已被使用的項目只能停用，未使用的項目才可永久刪除。</p>
+    <div class="master-manager-tabs" id="masterManagerTabs"></div>
+    <div class="master-manager-add">
+      <select id="masterManagerParent" hidden></select>
+      <input id="masterManagerNewValue" placeholder="輸入新名稱">
+      <button class="primary" type="button" onclick="addManagedOption()">＋ 新增</button>
+    </div>
+    <div class="master-manager-list" id="masterManagerList"></div>
   </div>
 </div>
 

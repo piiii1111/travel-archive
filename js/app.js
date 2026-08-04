@@ -37,15 +37,9 @@ function renderStats(){
 function setRegionCountryData(rows,options=[]){
   regionCountryMap.clear();
   const regionSelect=document.getElementById('journeyRegion');
-  (options||[]).filter(option=>option.option_type==='region').forEach(option=>{
-    if(regionSelect&&![...regionSelect.options].some(item=>item.value===option.value))regionSelect.add(new Option(option.value,option.value));
-  });
-  (rows||[]).forEach(row=>{
-    const country=normalizeText(row.country);const region=row.details?.region||inferRegionForCountry(country);
-    if(!region||!country)return;
-    if(!regionCountryMap.has(region))regionCountryMap.set(region,new Set());
-    regionCountryMap.get(region).add(country);
-  });
+  const activeRegions=(options||[]).filter(option=>option.option_type==='region').map(option=>option.value);
+  const previousRegion=regionSelect?.value;
+  if(regionSelect&&activeRegions.length){regionSelect.innerHTML=activeRegions.map(region=>`<option>${escapeHtml(region)}</option>`).join('');if(activeRegions.includes(previousRegion))regionSelect.value=previousRegion}
   (options||[]).filter(option=>option.option_type==='country').forEach(option=>{
     const region=option.parent_value||'其他';
     if(!regionCountryMap.has(region))regionCountryMap.set(region,new Set());
@@ -60,6 +54,7 @@ function syncJourneyCountryOptions(preferredCountry=''){
   if(!countrySelect||!region)return;
   const previous=preferredCountry||countrySelect.value;
   const countries=[...(regionCountryMap.get(region)||[])].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  if(preferredCountry&&!countries.includes(preferredCountry))countries.push(preferredCountry);
   countrySelect.innerHTML=countries.length?countries.map(country=>`<option>${escapeHtml(country)}</option>`).join(''):'<option value="">請新增這個地區的第一個國家</option>';
   if(countries.includes(previous))countrySelect.value=previous;
 }
@@ -397,6 +392,18 @@ const masterData = {
   currency: ['TWD','JPY','USD','EUR','KRW','THB'],
   payer: ['共同帳戶','我','同行者','現金']
 };
+
+function applyManagedMasterOptions(options=[]){
+  const active=options.filter(option=>option.is_active!==false);
+  const values=type=>active.filter(option=>option.option_type===type).map(option=>option.value);
+  const categories=values('expense_category');if(categories.length)masterData.category=[...new Set(categories)];
+  const payers=values('payer');if(payers.length)masterData.payer=[...new Set(payers)];
+  const currencies=values('currency');if(currencies.length)masterData.currency=[...new Set(currencies)];
+  const transports=new Set(values('transport'));
+  if(transports.size)document.querySelectorAll('[data-journey-transport]').forEach(input=>{input.closest('.check-chip').hidden=!transports.has(input.value)});
+  syncMasterSelects();renderMasterData();renderBudget();
+}
+window.applyManagedMasterOptions=applyManagedMasterOptions;
 
 let activeMasterTab = 'category';
 let budgetFilterMode = 'all';
