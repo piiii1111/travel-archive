@@ -661,9 +661,6 @@
     function openReviewModal(event){
       event?.preventDefault();
       event?.stopPropagation();
-      const editor=document.getElementById('reviewEditor');
-      const review=document.getElementById('reviewText');
-      if(editor && review) editor.value=review.textContent.trim();
       document.getElementById('reviewModal')?.classList.add('show');
       document.body.classList.add('modal-open');
     }

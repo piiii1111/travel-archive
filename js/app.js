@@ -216,9 +216,10 @@ function renderJourneyDetail(journey){
     const emptyReview='尚未新增這趟旅行的總心得。';
     const reviewText=document.getElementById('reviewText');
     const reviewEditor=document.getElementById('reviewEditor');
-    if(reviewText)reviewText.textContent=journey.summary||emptyReview;
-    if(reviewEditor)reviewEditor.value=journey.summary||'';
     reviewTags=Array.isArray(journey.details?.tags)?[...journey.details.tags]:[];
+    const reviewDisplay=[journey.summary||'',reviewTags.join('、')].filter(Boolean).join(' · ')||emptyReview;
+    if(reviewText)reviewText.textContent=reviewDisplay;
+    if(reviewEditor)reviewEditor.value=journey.summary||'';
     renderReviewTags();
     renderJourneyInfo(journey);
 }
