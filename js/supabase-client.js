@@ -21,6 +21,12 @@
     ...['共同帳戶','我','同行者','現金'].map(value=>['payer','',value]),
     ...['租車','地鐵／捷運','JR／火車／近鐵','公車','計程車／Uber','渡輪／船','摩托車','自有車','自行車','步行'].map(value=>['transport','',value])
   ];
+  const optionCompare=(a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.created_at||'').localeCompare(String(b.created_at||''))||a.value.localeCompare(b.value,'zh-Hant');
+  const defaultSortOrder=(type,parent,value)=>{
+    const siblings=defaultOptions.filter(([optionType,parentValue])=>optionType===type&&(type!=='country'||parentValue===parent));
+    const index=siblings.findIndex(([,parentValue,optionValue])=>parentValue===parent&&optionValue===value);
+    return index>=0?(index+1)*10:1000;
+  };
 
   const $ = id => document.getElementById(id);
   const setStatus = (text, type = '') => {
@@ -205,7 +211,7 @@
         </article>`;
       }).join('');
     }
-    const activeOptions=optionRows.filter(option=>option.is_active!==false);
+    const activeOptions=optionRows.filter(option=>option.is_active!==false).sort(optionCompare);
     window.setJourneyData?.(rows);
     window.setRegionCountryData?.(rows, activeOptions);
     window.setCurrencyData?.(rows, activeOptions);
@@ -236,7 +242,7 @@
     const { data: settings, error: settingsError } = await client.from('travel_archive_settings').select('master_data_initialized').eq('owner_id', currentUser.id).maybeSingle();
     if (settingsError) { console.warn('資料管理尚未啟用，請先執行 v1.3.0 SQL：', settingsError.message); return; }
     if (settings?.master_data_initialized) return;
-    const rows=defaultOptions.map(([option_type,parent_value,value])=>({owner_id:currentUser.id,option_type,parent_value,value,is_active:true}));
+    const rows=defaultOptions.map(([option_type,parent_value,value])=>({owner_id:currentUser.id,option_type,parent_value,value,is_active:true,sort_order:defaultSortOrder(option_type,parent_value,value)}));
     const { error: seedError } = await client.from('journey_options').upsert(rows,{onConflict:'owner_id,option_type,parent_value,value'});
     if (seedError) { console.warn('建立預設資料失敗：',seedError.message); return; }
     await client.from('travel_archive_settings').upsert({owner_id:currentUser.id,master_data_initialized:true,updated_at:new Date().toISOString()});
@@ -261,11 +267,11 @@
     const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false);
     parent.hidden=activeManagerType!=='country';
     parent.innerHTML=regions.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
-    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort((a,b)=>a.value.localeCompare(b.value,'zh-Hant'));
+    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort((a,b)=>activeManagerType==='country'?(a.parent_value.localeCompare(b.parent_value,'zh-Hant')||optionCompare(a,b)):optionCompare(a,b));
     list.innerHTML=rows.map(row=>{
       const usage=optionUsage(row);
       const parentSelect=row.option_type==='country'?`<select id="managed-parent-${row.id}">${regions.map(region=>`<option ${region.value===row.parent_value?'selected':''}>${escapeHtml(region.value)}</option>`).join('')}</select>`:'';
-      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta"><span>${usage} 個 Journey 使用</span><b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
+      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta"><span>${usage} 個 Journey 使用</span><b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
   }
 
@@ -312,6 +318,19 @@
     const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
     const {error}=await client.from('journey_options').update({is_active:option.is_active===false,updated_at:new Date().toISOString()}).eq('id',id);
     if(error)return alert(`更新失敗：${error.message}`);await loadJourneys();
+  }
+
+  async function moveManagedOption(id,direction){
+    const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
+    const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type&&(option.option_type!=='country'||row.parent_value===option.parent_value)).sort(optionCompare);
+    const index=siblings.findIndex(row=>row.id===id),targetIndex=index+Number(direction);
+    if(index<0||targetIndex<0||targetIndex>=siblings.length)return;
+    const reordered=[...siblings];const [moved]=reordered.splice(index,1);reordered.splice(targetIndex,0,moved);
+    for(let position=0;position<reordered.length;position++){
+      const {error}=await client.from('journey_options').update({sort_order:(position+1)*10,updated_at:new Date().toISOString()}).eq('id',reordered[position].id);
+      if(error)return alert(`順序儲存失敗：${error.message}`);
+    }
+    await loadJourneys();
   }
 
   async function deleteManagedOption(id){
@@ -437,7 +456,8 @@
 
   async function saveJourneyOption(optionType, value, parentValue = '') {
     if (!currentUser) return false;
-    const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value, is_active:true, updated_at:new Date().toISOString() };
+    const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType&&(optionType!=='country'||row.parent_value===(parentValue||''))).map(row=>Number(row.sort_order)||0);
+    const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value, is_active:true, sort_order:Math.max(0,...siblingOrders)+10, updated_at:new Date().toISOString() };
     const { error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' });
     if (error) { console.error(error); return false; }
     return true;
@@ -561,6 +581,7 @@
     window.addManagedOption = addManagedOption;
     window.renameManagedOption = renameManagedOption;
     window.toggleManagedOption = toggleManagedOption;
+    window.moveManagedOption = moveManagedOption;
     window.deleteManagedOption = deleteManagedOption;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {

@@ -53,7 +53,7 @@ function syncJourneyCountryOptions(preferredCountry=''){
   const countrySelect=document.getElementById('journeyCountry');
   if(!countrySelect||!region)return;
   const previous=preferredCountry||countrySelect.value;
-  const countries=[...(regionCountryMap.get(region)||[])].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  const countries=[...(regionCountryMap.get(region)||[])];
   if(preferredCountry&&!countries.includes(preferredCountry))countries.push(preferredCountry);
   countrySelect.innerHTML=countries.length?countries.map(country=>`<option>${escapeHtml(country)}</option>`).join(''):'<option value="">請新增這個地區的第一個國家</option>';
   if(countries.includes(previous))countrySelect.value=previous;
@@ -252,7 +252,7 @@ function openJourneyModal(){document.getElementById('journeyModal')?.classList.a
 function openDayModal(){document.getElementById('dayModal')?.classList.add('show')}
 function openSpotModal(){document.getElementById('spotModal')?.classList.add('show')}
 function closeModal(id){document.getElementById(id)?.classList.remove('show');document.body.classList.remove('modal-open')}
-function closeOnBackdrop(e,id){if(id==='journeyModal')return;if(e.target.id===id)closeModal(id)}
+function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
 function closeDayMenus(){document.querySelectorAll('.day-menu-panel.show').forEach(panel=>panel.classList.remove('show'))}
 function toggleDayMenu(btn){const panel=btn.nextElementSibling;const shouldOpen=!panel?.classList.contains('show');closeDayMenus();if(shouldOpen)panel?.classList.add('show')}
 function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
@@ -400,7 +400,13 @@ function applyManagedMasterOptions(options=[]){
   const payers=values('payer');if(payers.length)masterData.payer=[...new Set(payers)];
   const currencies=values('currency');if(currencies.length)masterData.currency=[...new Set(currencies)];
   const transports=new Set(values('transport'));
-  if(transports.size)document.querySelectorAll('[data-journey-transport]').forEach(input=>{input.closest('.check-chip').hidden=!transports.has(input.value)});
+  if(transports.size){
+    const transportValues=values('transport');
+    const inputs=[...document.querySelectorAll('[data-journey-transport]')];
+    inputs.forEach(input=>{input.closest('.check-chip').hidden=!transports.has(input.value)});
+    const container=inputs[0]?.closest('.check-chips');
+    transportValues.forEach(value=>{const input=inputs.find(item=>item.value===value);if(input&&container)container.appendChild(input.closest('.check-chip'))});
+  }
   syncMasterSelects();renderMasterData();renderBudget();
 }
 window.applyManagedMasterOptions=applyManagedMasterOptions;
