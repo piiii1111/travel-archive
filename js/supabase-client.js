@@ -191,7 +191,7 @@
     if (!rows.length) {
       list.innerHTML = '<div class="expense-empty">資料庫目前沒有旅程。請按右上角「＋ 新增旅程」建立第一趟。</div>';
     } else {
-      list.innerHTML = rows.slice(0, 5).map(row => {
+      list.innerHTML = rows.map(row => {
         const details = row.details || {};
         const tags = Array.isArray(details.tags) ? details.tags : [];
         const summaryText = [row.summary || '', tags.join('、')].filter(Boolean).join(' · ') || '尚未填寫旅程摘要。';
@@ -216,6 +216,7 @@
     window.setRegionCountryData?.(rows, activeOptions);
     window.setCurrencyData?.(rows, activeOptions);
     window.applyManagedMasterOptions?.(activeOptions);
+    window.filterJourneys?.();
     if ($('journeyCount')) $('journeyCount').textContent = String(rows.length);
   }
 
@@ -325,12 +326,20 @@
     const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type&&(option.option_type!=='country'||row.parent_value===option.parent_value)).sort(optionCompare);
     const index=siblings.findIndex(row=>row.id===id),targetIndex=index+Number(direction);
     if(index<0||targetIndex<0||targetIndex>=siblings.length)return;
-    const reordered=[...siblings];const [moved]=reordered.splice(index,1);reordered.splice(targetIndex,0,moved);
-    for(let position=0;position<reordered.length;position++){
-      const {error}=await client.from('journey_options').update({sort_order:(position+1)*10,updated_at:new Date().toISOString()}).eq('id',reordered[position].id);
-      if(error)return alert(`順序儲存失敗：${error.message}`);
-    }
-    await loadJourneys();
+    const target=siblings[targetIndex];
+    const optionOrder=Number(option.sort_order)||((index+1)*10),targetOrder=Number(target.sort_order)||((targetIndex+1)*10);
+    option.sort_order=targetOrder;target.sort_order=optionOrder;
+    renderMasterManager();
+    const activeOptions=cachedOptionRows.filter(row=>row.is_active!==false).sort(optionCompare);
+    window.setRegionCountryData?.(cachedJourneyRows,activeOptions);
+    window.applyManagedMasterOptions?.(activeOptions);
+    const updatedAt=new Date().toISOString();
+    const results=await Promise.all([
+      client.from('journey_options').update({sort_order:targetOrder,updated_at:updatedAt}).eq('id',option.id),
+      client.from('journey_options').update({sort_order:optionOrder,updated_at:updatedAt}).eq('id',target.id)
+    ]);
+    const failed=results.find(result=>result.error);
+    if(failed){option.sort_order=optionOrder;target.sort_order=targetOrder;renderMasterManager();alert(`順序儲存失敗：${failed.error.message}`);}
   }
 
   async function deleteManagedOption(id){

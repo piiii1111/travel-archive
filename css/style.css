@@ -248,7 +248,7 @@
     }
     .modal-backdrop.show{display:flex}
     .modal{
-      width:100%;max-width:530px;max-height:88dvh;overflow:auto;overscroll-behavior:contain;
+      width:100%;max-width:530px;max-height:88dvh;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
       background:var(--paper);border-radius:24px 24px 0 0;
       padding:19px 17px calc(19px + env(safe-area-inset-bottom));
     }
@@ -256,9 +256,10 @@
     .modal-head h3{font-family:"Noto Serif TC",serif;font-size:21px;font-weight:600;margin:0}
     .modal-head button{border:0;background:var(--paper-2);width:34px;height:34px;border-radius:10px}
     .field{margin-bottom:12px}
+    .field,.two-col>*,.three-col>*{min-width:0}
     .field label{display:block;font-size:9px;color:var(--muted);font-weight:700;margin-bottom:6px}
     .field input,.field select,.field textarea{
-      width:100%;border:1px solid var(--line);background:#f3f1ec;
+      display:block;width:100%;min-width:0;max-width:100%;border:1px solid var(--line);background:#f3f1ec;
       border-radius:11px;padding:11px;color:var(--ink);outline:0;
     }
     .modal-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:6px}
@@ -548,6 +549,12 @@
 @media(min-width:760px){.map-area{grid-column:1;grid-row:1 / span 2}.map-card{grid-column:auto;grid-row:auto}.archive-timeline-card{height:600px}.detail-toolbar{padding-top:18px}}
 @media(max-width:759px){main{padding-top:14px}.home-grid{display:flex;flex-direction:column}.map-area{order:1}.intro{order:2}.section{order:3}.archive-view-tabs{margin-bottom:12px}.map-card #map{height:430px}.archive-timeline-card{height:auto;min-height:430px;padding:18px 12px}.timeline-years{display:none}.archive-timeline-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.archive-trip-card img{height:150px}.archive-trip-body b{font-size:17px}.detail-hero{margin-top:0}.detail-toolbar{padding:12px 2px 0}.modal-backdrop{height:100dvh;padding:82px 10px calc(12px + env(safe-area-inset-bottom))!important}.modal{max-height:calc(100dvh - 94px)!important;scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom))}.journey-photo-upload{grid-template-columns:1fr}.journey-photo-preview{height:170px}}
 
+@media(max-width:759px){
+  #journeyModal #flightFields,#journeyModal .flight-sections,#journeyModal .flight-card,#journeyModal .two-col{width:100%;min-width:0;max-width:100%}
+  #journeyModal input[type="date"],#journeyModal input[type="time"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
+  #journeyModal .flight-card{overflow:hidden}
+}
+
 
 /* R4: user refinements + mobile year-group timeline */
 .detail-hero.has-cover:after{background:none!important}
@@ -709,6 +716,5 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
     box-shadow:0 -10px 24px rgba(40,42,40,.07);
     isolation:isolate;
   }
-  #journeyModal .journey-modal-actions::after{content:"";position:absolute;z-index:-1;left:0;right:0;top:100%;height:calc(110px + env(safe-area-inset-bottom));background:var(--paper)}
   #journeyModal .journey-modal-actions button{min-height:48px}
 }

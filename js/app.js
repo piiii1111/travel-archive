@@ -132,9 +132,9 @@ function validateJourneyBoundedDate(input,label){
   if(value<start||value>end){alert(`${label}必須在 Journey 日期 ${start}～${end} 之內。`);input.value=input.type==='datetime-local'?withDate(input.value,value<start?start:end):(value<start?start:end);return false}
   return true;
 }
-function renderTimeline(){
+function renderTimeline(source=journeys){
   const root=document.getElementById('archiveTimelineGrid'); if(!root)return;
-  const groups=journeys.reduce((acc,j)=>((acc[j.year]??=[]).push(j),acc),{});
+  const groups=source.reduce((acc,j)=>((acc[j.year]??=[]).push(j),acc),{});
   root.innerHTML=Object.keys(groups).sort((a,b)=>b-a).map(year=>{
     const trips=groups[year].sort((a,b)=>b.start.localeCompare(a.start));
     return `<section class="archive-year-group"><div class="archive-year-label"><span></span><b>${year}</b></div><div class="archive-year-trips">${trips.map(j=>`<button class="archive-trip-card" type="button" onclick="openDetail('${j.id}')"><img src="${j.photo}" alt="${j.title}"><span class="archive-trip-body"><b>${j.title}</b><small>${j.date}</small><small>${j.country}${j.cities.length ? ` · ${j.cities.join('、')}` : ''}</small></span></button>`).join('')}</div></section>`
@@ -156,11 +156,11 @@ function journeyCoordinates(j,index){
   const base=found?.[1]||[23.6978,120.9605];
   return [base[0]+index*0.025,base[1]+index*0.025];
 }
-function renderMapPins(){
+function renderMapPins(source=journeys){
   if(!map||!journeyMarkerLayer)return;
   journeyMarkerLayer.clearLayers();
   const points=[];
-  journeys.forEach((j,index)=>{
+  source.forEach((j,index)=>{
     const coords=journeyCoordinates(j,index);points.push(coords);
     const pinPhoto=escapeHtml(String(j.photo).replaceAll("'",'%27'));
     const icon=L.divIcon({className:'photo-pin-wrap',html:`<button class="photo-pin" type="button" aria-label="開啟 ${escapeHtml(j.title)}"><span class="photo-pin-image" style="background-image:url('${pinPhoto}')"></span></button>`,iconSize:[48,48],iconAnchor:[24,24]});
@@ -172,7 +172,9 @@ function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',summary:row.summary||'',details,index};
+    const tags=Array.isArray(details.tags)?details.tags:[];
+    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${tags.join(' ')} ${(details.cities||[]).join(' ')} ${details.pin_place||''}`;
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',summary:row.summary||'',searchText,details,index};
   });
   renderStats();renderTimeline();renderMapPins();
   if(document.getElementById('detailView')?.classList.contains('active')&&activeJourneyId){
@@ -257,7 +259,20 @@ function closeDayMenus(){document.querySelectorAll('.day-menu-panel.show').forEa
 function toggleDayMenu(btn){const panel=btn.nextElementSibling;const shouldOpen=!panel?.classList.contains('show');closeDayMenus();if(shouldOpen)panel?.classList.add('show')}
 function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
 function switchMode(mode,btn){document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
-function filterJourneys(){const q=normalizeText(document.getElementById('searchInput').value).toLowerCase();const region=document.getElementById('regionFilter').value;document.querySelectorAll('.journey-card').forEach(c=>{const okQ=!q||c.dataset.search.toLowerCase().includes(q);const okR=region==='all'||c.dataset.region===region;c.style.display=okQ&&okR?'':'none'})}
+function filterJourneys(){
+  const q=normalizeText(document.getElementById('searchInput')?.value).toLowerCase();
+  const region=document.getElementById('regionFilter')?.value||'all';
+  const filtered=journeys.filter(j=>(!q||String(j.searchText||'').toLowerCase().includes(q))&&(region==='all'||j.region===region));
+  let shown=0;
+  document.querySelectorAll('.journey-card').forEach(card=>{
+    const matches=(!q||String(card.dataset.search||'').toLowerCase().includes(q))&&(region==='all'||card.dataset.region===region);
+    const visible=matches&&shown<5;
+    card.style.display=visible?'':'none';
+    if(visible)shown+=1;
+  });
+  renderTimeline(filtered);
+  renderMapPins(filtered);
+}
 function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
 function addCityInput(value=''){
   const grid=document.getElementById('cityInputGrid');
