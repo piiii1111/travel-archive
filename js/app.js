@@ -142,7 +142,7 @@ function renderTimeline(source=journeys){
 }
 function initMap(){
   if(!window.L || !document.getElementById('map')) return;
-  map=L.map('map',{zoomControl:true}).setView([29.4,129.5],4);
+  map=L.map('map',{zoomControl:true,zoomSnap:.05,zoomDelta:.25}).setView([29.4,129.5],4);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
   journeyMarkerLayer=L.layerGroup().addTo(map);
   renderMapPins();
@@ -166,7 +166,15 @@ function renderMapPins(source=journeys){
     const icon=L.divIcon({className:'photo-pin-wrap',html:`<button class="photo-pin" type="button" aria-label="開啟 ${escapeHtml(j.title)}"><span class="photo-pin-image" style="background-image:url('${pinPhoto}')"></span></button>`,iconSize:[48,48],iconAnchor:[24,24]});
     L.marker(coords,{icon}).addTo(journeyMarkerLayer).on('click',()=>openDetail(j.id));
   });
-  if(points.length)map.fitBounds(points,{padding:[45,45],maxZoom:6});
+  if(points.length){
+    map.fitBounds(points,{padding:[45,45],maxZoom:6,animate:false});
+    requestAnimationFrame(()=>{
+      map.invalidateSize(false);
+      const height=map.getSize().y;
+      const fillZoom=Math.log2(Math.max(256,height+2)/256);
+      if(map.getZoom()<fillZoom)map.setZoom(fillZoom,{animate:false});
+    });
+  }
 }
 function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{

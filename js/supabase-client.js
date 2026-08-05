@@ -15,6 +15,7 @@
   let activeManagerParent = '';
   let activeManagerPage = 1;
   const managerPageSize = 10;
+  let movingManagedOption = false;
   const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
   const defaultOptions = [
     ...['東北亞','東南亞','台灣','歐洲','美洲','大洋洲','其他'].map(value=>['region','',value]),
@@ -360,20 +361,27 @@
   }
 
   async function moveManagedOption(id,direction){
+    if(movingManagedOption)return;
     const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
     const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type&&(!['country','city'].includes(option.option_type)||row.parent_value===option.parent_value)).sort(optionCompare);
     const index=siblings.findIndex(row=>row.id===id),targetIndex=index+Number(direction);
     if(index<0||targetIndex<0||targetIndex>=siblings.length)return;
     const reordered=[...siblings];const [moved]=reordered.splice(index,1);reordered.splice(targetIndex,0,moved);
-    reordered.forEach((row,position)=>{row.sort_order=(position+1)*10});
-    renderMasterManager();
-    const activeOptions=cachedOptionRows.filter(row=>row.is_active!==false).sort(optionCompare);
-    window.setRegionCountryData?.(cachedJourneyRows,activeOptions);
-    window.applyManagedMasterOptions?.(activeOptions);
-    const updatedAt=new Date().toISOString();
-    const results=await Promise.all(reordered.map(row=>client.from('journey_options').update({sort_order:row.sort_order,updated_at:updatedAt}).eq('id',row.id)));
-    const failed=results.find(result=>result.error);
-    if(failed){alert(`順序儲存失敗：${failed.error.message}`);await loadJourneys();}
+    const updatedAt=new Date().toISOString(),payload=reordered.map((row,position)=>({...row,sort_order:(position+1)*10,updated_at:updatedAt}));
+    movingManagedOption=true;
+    document.querySelectorAll('.master-manager-actions button').forEach(button=>button.disabled=true);
+    try{
+      const {data,error}=await client.from('journey_options').upsert(payload,{onConflict:'id'}).select();
+      if(error)throw error;
+      const byId=new Map((data||payload).map(row=>[row.id,row]));
+      cachedOptionRows=cachedOptionRows.map(row=>byId.get(row.id)||row);
+      activeManagerPage=Math.floor(targetIndex/managerPageSize)+1;
+      renderMasterManager();
+      const activeOptions=cachedOptionRows.filter(row=>row.is_active!==false).sort(optionCompare);
+      window.setRegionCountryData?.(cachedJourneyRows,activeOptions);
+      window.applyManagedMasterOptions?.(activeOptions);
+    }catch(error){alert(`順序儲存失敗：${error.message}`);await loadJourneys()}
+    finally{movingManagedOption=false;document.querySelectorAll('.master-manager-actions button').forEach(button=>button.disabled=false)}
   }
 
   async function deleteManagedOption(id){
