@@ -1,4 +1,4 @@
-Travel Archive v1.4.3｜Supabase Connection
+Travel Archive v1.5.0｜Supabase Connection
 
 這個版本已完成：
 1. Email＋密碼註冊／登入
@@ -46,6 +46,15 @@ v1.4.3 修正：
 - Master Data 上下移改為單次批次儲存完整順序，避免重複 sort_order 與連點競爭。
 - 排序儲存期間暫時停用操作鍵，完成後停留在項目所在分頁。
 - 本版不需要新增或執行 SQL。
+
+v1.5.0 下一階段：Spot 行程節點
+- Spot 正式寫入 Supabase，不再顯示名古屋示範節點。
+- 支援在指定 Day 新增、編輯、刪除行程節點。
+- 支援類型、名稱、時間、備註與景點心得。
+- 同一天內可用滑鼠、觸控或鍵盤調整順序，重新整理後仍保留。
+- Day 刪除時，所屬 Spot 會由資料庫一併刪除。
+- 請先執行 supabase-v1.5.0-spots-migration.sql；這份 SQL 相容舊版 spots.user_id 並保留既有資料。
+- Expense 費用仍維持目前階段，待 Spot 驗收後再接 Supabase。
 
 
 v1.2.1 修正：

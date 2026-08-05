@@ -597,12 +597,13 @@
 <div class="modal-backdrop" id="spotModal" onclick="closeOnBackdrop(event,'spotModal')">
   <div class="modal">
     <div class="modal-head"><h3>新增／編輯行程節點</h3><button onclick="closeModal('spotModal')">×</button></div>
-    <div class="field"><label>類型</label><select><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select></div>
-    <div class="field"><label>名稱</label><input value="抵達中部國際機場"></div>
-    <div class="field"><label>時間</label><input type="time" value="22:20"></div>
-    <div class="field"><label>備註</label><textarea rows="3">虎航準時抵達，領完行李後走天橋前往機場旁飯店。</textarea></div>
-    <div class="field"><label>景點心得</label><textarea rows="4">領完行李走到東橫 INN 已經接近 23:30。</textarea></div>
-    <div class="modal-actions"><button class="secondary" onclick="closeModal('spotModal')">取消</button><button class="primary" onclick="closeModal('spotModal')">儲存</button></div>
+    <input type="hidden" id="spotEditId"><input type="hidden" id="spotDayId">
+    <div class="field"><label for="spotType">類型</label><select id="spotType"><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select></div>
+    <div class="field"><label for="spotName">名稱</label><input id="spotName" placeholder="例如：宜蘭傳藝中心"></div>
+    <div class="field"><label for="spotTime">時間</label><input id="spotTime" type="time"></div>
+    <div class="field"><label for="spotNote">備註</label><textarea id="spotNote" rows="3"></textarea></div>
+    <div class="field"><label for="spotReview">景點心得</label><textarea id="spotReview" rows="4"></textarea></div>
+    <div class="modal-actions"><button class="secondary" onclick="closeModal('spotModal')">取消</button><button class="primary" type="button" onclick="saveSpot()">儲存</button></div>
   </div>
 </div>
 

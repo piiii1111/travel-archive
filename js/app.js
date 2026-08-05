@@ -273,7 +273,7 @@ function openJourneyModal(){openExclusiveModal('journeyModal')}
 function openDayModal(){openExclusiveModal('dayModal')}
 function openSpotModal(){openExclusiveModal('spotModal')}
 function closeModal(id){document.getElementById(id)?.classList.remove('show');if(!document.querySelector('.modal-backdrop.show'))document.body.classList.remove('modal-open')}
-function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal','dayModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
+function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal','dayModal','spotModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
 function closeDayMenus(){document.querySelectorAll('.day-menu-panel.show').forEach(panel=>panel.classList.remove('show'))}
 function toggleDayMenu(btn){const panel=btn.nextElementSibling;const shouldOpen=!panel?.classList.contains('show');closeDayMenus();if(shouldOpen)panel?.classList.add('show')}
 function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
@@ -419,6 +419,7 @@ function initSpotDragging(){
     list.addEventListener('pointermove',move,{passive:false});list.addEventListener('pointerup',end);list.addEventListener('pointercancel',end);
   });
 }
+window.initSpotDragging=initSpotDragging;
 
 document.addEventListener('DOMContentLoaded',initSpotDragging);
 

@@ -11,6 +11,7 @@
   let selectedCoverPreviewUrl = '';
   let cachedJourneyRows = [];
   let cachedOptionRows = [];
+  let cachedSpotRows = [];
   let activeManagerType = 'region';
   let activeManagerParent = '';
   let activeManagerPage = 1;
@@ -638,7 +639,59 @@
   async function loadJourneyDays(journeyId){
     const {data,error}=await client.from('days').select('*').eq('journey_id',journeyId).order('sort_order').order('day_date');
     if(error){console.error(error);setStatus(`Day 載入失敗：${error.message}`,'error');return false}
-    renderJourneyDays(data||[]);return true;
+    renderJourneyDays(data||[]);await loadJourneySpots(journeyId);return true;
+  }
+
+  function renderJourneySpots(rows){
+    cachedSpotRows=rows||[];
+    document.querySelectorAll('.day-section[data-day-id] .timeline').forEach(oldList=>{const list=oldList.cloneNode(false);list.innerHTML='';list.setAttribute('draggable-list','true');oldList.replaceWith(list)});
+    cachedSpotRows.forEach(row=>{
+      const list=document.querySelector(`.day-section[data-day-id="${CSS.escape(row.day_id)}"] .timeline`);if(!list)return;
+      const card=document.createElement('article');card.className='spot-card';card.dataset.spotId=row.id;card.dataset.sortOrder=String(row.sort_order||0);
+      const time=String(row.visit_time||'').slice(0,5),review=row.review||'';
+      card.innerHTML=`<span class="drag-handle">⋮⋮</span><div class="spot-top"><div><div class="spot-type">${escapeHtml(row.spot_type||'景點')}</div><h3>${escapeHtml(row.name||'未命名節點')}</h3></div><div class="spot-time">${escapeHtml(time)}</div></div><p class="spot-note">${escapeHtml(row.note||'')}</p><div class="spot-actions"><button type="button" onclick="openSpotModal('${row.id}')">編輯</button><button type="button" class="danger" onclick="deleteJourneySpot('${row.id}')">刪除</button></div>${review?`<button class="thought-toggle" type="button" onclick="toggleThought(this)">查看景點心得 <span>＋</span></button><div class="thought">${escapeHtml(review)}</div>`:''}`;
+      list.appendChild(card);
+    });
+    document.querySelectorAll('.day-section[data-day-id] .timeline').forEach(list=>list.addEventListener('spotorderchange',event=>persistJourneySpotOrder(event.detail.order)));
+    window.initSpotDragging?.();
+  }
+
+  async function loadJourneySpots(journeyId){
+    const {data,error}=await client.from('spots').select('*').eq('journey_id',journeyId).order('sort_order').order('visit_time');
+    if(error){console.error(error);setStatus(`行程節點載入失敗：${error.message}`,'error');return false}
+    renderJourneySpots(data||[]);return true;
+  }
+
+  function openSpotEditor(spotId=''){
+    const row=cachedSpotRows.find(item=>item.id===spotId);
+    const activeSection=row?document.querySelector(`.day-section[data-day-id="${CSS.escape(row.day_id)}"]`):document.querySelector('.day-section.active[data-day-id]');
+    if(!activeSection)return alert('請先切換到要新增行程節點的 Day。');
+    $('spotEditId').value=row?.id||'';$('spotDayId').value=row?.day_id||activeSection.dataset.dayId;
+    $('spotType').value=row?.spot_type||'景點';$('spotName').value=row?.name||'';$('spotTime').value=String(row?.visit_time||'').slice(0,5);$('spotNote').value=row?.note||'';$('spotReview').value=row?.review||'';
+    window.openExclusiveModal?.('spotModal');
+  }
+
+  async function saveSpot(){
+    const id=$('spotEditId').value,dayId=$('spotDayId').value,name=$('spotName').value.trim();
+    if(!name)return alert('請輸入行程節點名稱。');
+    const siblings=cachedSpotRows.filter(row=>row.day_id===dayId),existing=cachedSpotRows.find(row=>row.id===id);
+    const payload={journey_id:window.currentJourneyId,day_id:dayId,owner_id:currentUser.id,user_id:currentUser.id,spot_type:$('spotType').value,name,visit_time:$('spotTime').value||null,note:$('spotNote').value.trim()||null,review:$('spotReview').value.trim()||null,sort_order:existing?.sort_order??siblings.length,updated_at:new Date().toISOString()};
+    const {error}=await (id?client.from('spots').update(payload).eq('id',id):client.from('spots').insert(payload));
+    if(error)return alert(`行程節點儲存失敗：${error.message}`);
+    window.closeModal?.('spotModal');await loadJourneySpots(window.currentJourneyId);
+  }
+
+  async function deleteJourneySpot(id){
+    if(!confirm('確定刪除這個行程節點嗎？'))return;
+    const {error}=await client.from('spots').delete().eq('id',id);if(error)return alert(`刪除失敗：${error.message}`);
+    await loadJourneySpots(window.currentJourneyId);
+  }
+
+  async function persistJourneySpotOrder(order){
+    const ids=(order||[]).filter(id=>cachedSpotRows.some(row=>row.id===id));if(!ids.length)return;
+    const results=await Promise.all(ids.map((id,index)=>client.from('spots').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',id)));
+    const failed=results.find(result=>result.error);if(failed)return alert(`行程節點排序失敗：${failed.error.message}`);
+    ids.forEach((id,index)=>{const row=cachedSpotRows.find(item=>item.id===id);if(row)row.sort_order=index});
   }
   async function normalizeJourneyDays(journeyId){
     const {data,error}=await client.from('days').select('id,day_date').eq('journey_id',journeyId).order('day_date');if(error)throw error;
@@ -693,6 +746,10 @@
     window.saveJourneyDay = saveJourneyDay;
     window.deleteJourneyDay = deleteJourneyDay;
     window.persistJourneyDayOrder = persistJourneyDayOrder;
+    window.openSpotModal = openSpotEditor;
+    window.saveSpot = saveSpot;
+    window.deleteJourneySpot = deleteJourneySpot;
+    window.persistJourneySpotOrder = persistJourneySpotOrder;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {
