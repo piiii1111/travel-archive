@@ -7,6 +7,9 @@
   <title>Travel Archive v1.2.2｜Supabase Connection</title>
 
   <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <link rel="stylesheet" href="css/style.css">
@@ -377,7 +380,7 @@
 <button class="empty-add-day" onclick="openDayModal()">＋ 新增一天</button>
 
       <article class="review" id="journeyReview">
-        <h3>這趟旅行的總心得</h3>
+        <h3>旅遊總心得 · 旅遊標籤</h3>
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
         <div class="review-actions">
           <button type="button" onclick="openReviewModal(event)">編輯總心得</button>
@@ -606,7 +609,7 @@
 <div class="modal-backdrop" id="reviewModal" onclick="closeOnBackdrop(event,'reviewModal')">
   <div class="modal review-modal">
     <div class="modal-head">
-      <h3>編輯旅程總心得</h3>
+      <h3>編輯旅遊總心得 · 旅遊標籤</h3>
       <button onclick="closeModal('reviewModal')">×</button>
     </div>
     <div class="field">

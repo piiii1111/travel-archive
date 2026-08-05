@@ -175,3 +175,9 @@ v1.3.4 更新：
 - 「刪除總心得」改為「清除心得」，並同步調整確認文案。
 - Journey Modal 操作列下方增加精準的安全區遮罩，不再露出後方欄位。
 - 本次不需要執行新的 Supabase SQL。
+v1.3.5 更新：
+- 修正城市無法寫入 Master Data：需執行 supabase-v1.3.5-city-master-migration.sql。
+- 執行 SQL 並重新整理後，系統會從既有 Journey 自動整理城市資料。
+- Review 標題調整為「旅遊總心得 · 旅遊標籤」。
+- 網站明確載入 Noto Sans TC 與 Noto Serif TC，統一桌機與手機字型。
+- Master Data 父層選單沿用上一層排序：地區 → 國家 → 城市。

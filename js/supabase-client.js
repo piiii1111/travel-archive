@@ -270,7 +270,7 @@
     const tabs=$('masterManagerTabs'),list=$('masterManagerList'),parent=$('masterManagerParent');
     if(!tabs||!list||!parent)return;
     tabs.innerHTML=managerTypes.map(([type,label])=>`<button type="button" class="${type===activeManagerType?'active':''}" onclick="switchManagedOptionType('${type}')">${label}</button>`).join('');
-    const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false),countries=cachedOptionRows.filter(row=>row.option_type==='country'&&row.is_active!==false);
+    const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false).sort(optionCompare),countries=cachedOptionRows.filter(row=>row.option_type==='country'&&row.is_active!==false).sort(optionCompare);
     parent.hidden=!['country','city'].includes(activeManagerType);
     parent.innerHTML=(activeManagerType==='city'?countries:regions).map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
     const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort(optionCompare);
