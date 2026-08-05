@@ -13,6 +13,8 @@
   let cachedOptionRows = [];
   let activeManagerType = 'region';
   let activeManagerParent = '';
+  let activeManagerPage = 1;
+  const managerPageSize = 10;
   const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
   const defaultOptions = [
     ...['東北亞','東南亞','台灣','歐洲','美洲','大洋洲','其他'].map(value=>['region','',value]),
@@ -292,17 +294,22 @@
     parent.hidden=!usesParent;
     if(usesParent){if(activeManagerParent&&!filterParents.some(row=>row.value===activeManagerParent))activeManagerParent='';parent.innerHTML='<option value="">全部</option>'+filterParents.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');parent.value=activeManagerParent;parent.onchange=()=>setManagedParentFilter(parent.value)}else{activeManagerParent='';parent.onchange=null}
     const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType&&(!usesParent||!activeManagerParent||row.parent_value===activeManagerParent)).sort(optionCompare);
-    list.innerHTML=rows.map(row=>{
+    const totalPages=Math.max(1,Math.ceil(rows.length/managerPageSize));activeManagerPage=Math.min(activeManagerPage,totalPages);
+    const pageRows=rows.slice((activeManagerPage-1)*managerPageSize,activeManagerPage*managerPageSize);
+    const rowHtml=pageRows.map(row=>{
       const usage=optionUsage(row);
       const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
       const parentSelect=parentItems.length?`<select id="managed-parent-${row.id}">${parentItems.map(item=>`<option ${item.value===row.parent_value?'selected':''}>${escapeHtml(item.value)}</option>`).join('')}</select>`:'';
       return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} 個 Journey 使用・查看</button>`:`<span>0 個 Journey 使用</span>`}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
+    const pagination=rows.length>managerPageSize?`<nav class="master-manager-pagination" aria-label="Master Data 分頁"><button type="button" aria-label="第一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(1)">|‹</button><button type="button" aria-label="上一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage-1})">‹</button><span>${activeManagerPage} / ${totalPages}</span><button type="button" aria-label="下一頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage+1})">›</button><button type="button" aria-label="最末頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${totalPages})">›|</button></nav>`:'';
+    list.innerHTML=rowHtml+pagination;
   }
 
-  function openMasterDataModal(type='region'){activeManagerType=managerTypes.some(([value])=>value===type)?type:'region';activeManagerParent='';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
-  function switchManagedOptionType(type){activeManagerType=type;activeManagerParent='';renderMasterManager()}
-  function setManagedParentFilter(value){activeManagerParent=value||'';renderMasterManager()}
+  function openMasterDataModal(type='region'){activeManagerType=managerTypes.some(([value])=>value===type)?type:'region';activeManagerParent='';activeManagerPage=1;renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
+  function switchManagedOptionType(type){activeManagerType=type;activeManagerParent='';activeManagerPage=1;renderMasterManager()}
+  function setManagedParentFilter(value){activeManagerParent=value||'';activeManagerPage=1;renderMasterManager()}
+  function setMasterManagerPage(page){activeManagerPage=Math.max(1,Number(page)||1);renderMasterManager();$('masterManagerList')?.scrollIntoView({behavior:'smooth',block:'start'})}
 
   async function addManagedOption(){
     const value=$('masterManagerNewValue')?.value.trim();if(!value)return;
@@ -668,6 +675,7 @@
     window.openMasterDataModal = openMasterDataModal;
     window.switchManagedOptionType = switchManagedOptionType;
     window.setManagedParentFilter = setManagedParentFilter;
+    window.setMasterManagerPage = setMasterManagerPage;
     window.addManagedOption = addManagedOption;
     window.renameManagedOption = renameManagedOption;
     window.toggleManagedOption = toggleManagedOption;

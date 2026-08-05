@@ -290,7 +290,7 @@ function filterJourneys(keepPage=false){
   const pagination=document.getElementById('journeyPagination');
   if(pagination){
     pagination.hidden=filtered.length<=journeyPageSize;
-    pagination.innerHTML=filtered.length<=journeyPageSize?'':`<button type="button" ${journeyPage===1?'disabled':''} onclick="setJourneyPage(${journeyPage-1})">‹ 上一頁</button><span>${journeyPage} / ${totalPages}</span><button type="button" ${journeyPage===totalPages?'disabled':''} onclick="setJourneyPage(${journeyPage+1})">下一頁 ›</button>`;
+    pagination.innerHTML=filtered.length<=journeyPageSize?'':`<button type="button" aria-label="第一頁" ${journeyPage===1?'disabled':''} onclick="setJourneyPage(1)">|‹</button><button type="button" aria-label="上一頁" ${journeyPage===1?'disabled':''} onclick="setJourneyPage(${journeyPage-1})">‹</button><span>${journeyPage} / ${totalPages}</span><button type="button" aria-label="下一頁" ${journeyPage===totalPages?'disabled':''} onclick="setJourneyPage(${journeyPage+1})">›</button><button type="button" aria-label="最末頁" ${journeyPage===totalPages?'disabled':''} onclick="setJourneyPage(${totalPages})">›|</button>`;
   }
   renderTimeline(filtered);
   renderMapPins(filtered);

@@ -1,4 +1,4 @@
-Travel Archive v1.4.1｜Supabase Connection
+Travel Archive v1.4.2｜Supabase Connection
 
 這個版本已完成：
 1. Email＋密碼註冊／登入
@@ -33,6 +33,13 @@ v1.4.1 修正：
 - 刪除 Day 後，新增日期重新依目前最後一天計算。
 - Day Modal 不再因桌機拖選文字而誤關閉。
 - 首頁 Journey 搜尋結果改為每頁五筆，超過時顯示分頁。
+
+v1.4.2 修正：
+- Journey 分頁加入第一頁、上一頁、下一頁、最末頁 icon。
+- Master Data 超過 10 筆時自動分頁，同樣支援第一頁與最末頁。
+- 地圖在世界範圍低縮放時以海洋色填滿容器，不再露出灰色區塊。
+- 手機版可按住 Day Tab 左側拖曳把手調整順序；桌機拖曳維持原本操作。
+- 本版不需要新增或執行 SQL。
 
 
 v1.2.1 修正：

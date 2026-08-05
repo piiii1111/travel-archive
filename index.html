@@ -930,7 +930,36 @@
         clearDayDragState();
       }, true);
 
-      tabsWrap.addEventListener('pointercancel', clearDayDragState, true);
+      // iPhone Safari / Chrome do not reliably support HTML5 draggable.
+      // Touching the drag handle uses Pointer Events and keeps normal horizontal scrolling elsewhere.
+      let touchDragTab = null;
+      tabsWrap.addEventListener('pointerdown', event => {
+        if(event.pointerType==='mouse'||!event.target.closest('.day-drag-handle'))return;
+        const tab=event.target.closest('.day-tab[data-sortable-day]');if(!tab)return;
+        event.preventDefault();event.stopImmediatePropagation();
+        touchDragTab=tab;draggedTab=tab;tab.classList.add('day-dragging');
+        try{event.target.setPointerCapture(event.pointerId)}catch(_error){}
+      }, true);
+      tabsWrap.addEventListener('pointermove', event => {
+        if(!touchDragTab)return;
+        event.preventDefault();event.stopImmediatePropagation();
+        const overTab=document.elementFromPoint(event.clientX,event.clientY)?.closest('.day-tab[data-sortable-day]');
+        getDayTabs().forEach(tab=>tab.classList.remove('day-drop-target'));
+        if(!overTab||overTab===touchDragTab)return;
+        overTab.classList.add('day-drop-target');
+        const rect=overTab.getBoundingClientRect();
+        tabsWrap.insertBefore(touchDragTab,event.clientX>rect.left+rect.width/2?overTab.nextSibling:overTab);
+      }, {capture:true,passive:false});
+      const finishTouchDayDrag = event => {
+        if(!touchDragTab)return;
+        event?.preventDefault();event?.stopImmediatePropagation();
+        renumberCurrentOrder({assignContinuousDates:true});
+        window.persistJourneyDayOrder?.(getDayTabs().map(tab=>({id:tab.dataset.dayId,date:sectionForTab(tab)?.dataset.date})));
+        touchDragTab=null;clearDayDragState();suppressClickUntil=Date.now()+400;
+      };
+      tabsWrap.addEventListener('pointerup',finishTouchDayDrag,true);
+      tabsWrap.addEventListener('pointercancel',finishTouchDayDrag,true);
+
       document.addEventListener('visibilitychange', () => { if(document.hidden) clearDayDragState(); });
 
       tabsWrap.addEventListener('click', event => {
