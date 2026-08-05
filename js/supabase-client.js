@@ -195,7 +195,7 @@
         const details = row.details || {};
         const tags = Array.isArray(details.tags) ? details.tags : [];
         const summaryText = [row.summary || '', tags.join('、')].filter(Boolean).join(' · ') || '尚未填寫旅程摘要。';
-        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${tags.join(' ')} ${(details.cities || []).join(' ')} ${details.pin_place || ''}`;
+        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${row.main_currency || ''} ${details.region || ''} ${tags.join(' ')} ${(details.cities || []).join(' ')} ${(details.transports || []).join(' ')} ${details.pin_place || ''}`;
         return `
         <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
@@ -203,7 +203,7 @@
             <span class="status-badge">${journeyStatus(row)}</span>
           </div>
           <p class="journey-date">${formatDate(row.start_date)}－${formatDate(row.end_date)}</p>
-          <p class="summary">${escapeHtml(summaryText)}</p>
+          <p class="summary"><span>${escapeHtml(row.summary||'')}</span>${tags.length?`<span class="journey-tag-links">${tags.map(tag=>`<button type="button" data-filter-value="${escapeHtml(tag)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${escapeHtml(tag)}</button>`).join('')}</span>`:(!row.summary?'尚未填寫旅程摘要。':'')}</p>
           <div class="journey-bottom">
             <span>${escapeHtml(row.main_currency || 'TWD')}</span>
             <div class="icon-actions"><button type="button" aria-label="編輯旅程" data-edit-journey="${row.id}">✎</button><button type="button" aria-label="刪除旅程" data-delete-journey="${row.id}">⌫</button></div>
@@ -268,15 +268,15 @@
     const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false);
     parent.hidden=activeManagerType!=='country';
     parent.innerHTML=regions.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
-    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort((a,b)=>activeManagerType==='country'?(a.parent_value.localeCompare(b.parent_value,'zh-Hant')||optionCompare(a,b)):optionCompare(a,b));
+    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort(optionCompare);
     list.innerHTML=rows.map(row=>{
       const usage=optionUsage(row);
       const parentSelect=row.option_type==='country'?`<select id="managed-parent-${row.id}">${regions.map(region=>`<option ${region.value===row.parent_value?'selected':''}>${escapeHtml(region.value)}</option>`).join('')}</select>`:'';
-      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta"><span>${usage} 個 Journey 使用</span><b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
+      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} 個 Journey 使用・查看</button>`:`<span>0 個 Journey 使用</span>`}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
   }
 
-  function openMasterDataModal(){activeManagerType='region';renderMasterManager();$('masterDataModal')?.classList.add('show');document.body.classList.add('modal-open')}
+  function openMasterDataModal(){activeManagerType='region';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
   function switchManagedOptionType(type){activeManagerType=type;renderMasterManager()}
 
   async function addManagedOption(){
@@ -323,23 +323,19 @@
 
   async function moveManagedOption(id,direction){
     const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
-    const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type&&(option.option_type!=='country'||row.parent_value===option.parent_value)).sort(optionCompare);
+    const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type).sort(optionCompare);
     const index=siblings.findIndex(row=>row.id===id),targetIndex=index+Number(direction);
     if(index<0||targetIndex<0||targetIndex>=siblings.length)return;
-    const target=siblings[targetIndex];
-    const optionOrder=Number(option.sort_order)||((index+1)*10),targetOrder=Number(target.sort_order)||((targetIndex+1)*10);
-    option.sort_order=targetOrder;target.sort_order=optionOrder;
+    const reordered=[...siblings];const [moved]=reordered.splice(index,1);reordered.splice(targetIndex,0,moved);
+    reordered.forEach((row,position)=>{row.sort_order=(position+1)*10});
     renderMasterManager();
     const activeOptions=cachedOptionRows.filter(row=>row.is_active!==false).sort(optionCompare);
     window.setRegionCountryData?.(cachedJourneyRows,activeOptions);
     window.applyManagedMasterOptions?.(activeOptions);
     const updatedAt=new Date().toISOString();
-    const results=await Promise.all([
-      client.from('journey_options').update({sort_order:targetOrder,updated_at:updatedAt}).eq('id',option.id),
-      client.from('journey_options').update({sort_order:optionOrder,updated_at:updatedAt}).eq('id',target.id)
-    ]);
+    const results=await Promise.all(reordered.map(row=>client.from('journey_options').update({sort_order:row.sort_order,updated_at:updatedAt}).eq('id',row.id)));
     const failed=results.find(result=>result.error);
-    if(failed){option.sort_order=optionOrder;target.sort_order=targetOrder;renderMasterManager();alert(`順序儲存失敗：${failed.error.message}`);}
+    if(failed){alert(`順序儲存失敗：${failed.error.message}`);await loadJourneys();}
   }
 
   async function deleteManagedOption(id){
@@ -465,7 +461,7 @@
 
   async function saveJourneyOption(optionType, value, parentValue = '') {
     if (!currentUser) return false;
-    const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType&&(optionType!=='country'||row.parent_value===(parentValue||''))).map(row=>Number(row.sort_order)||0);
+    const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType).map(row=>Number(row.sort_order)||0);
     const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value, is_active:true, sort_order:Math.max(0,...siblingOrders)+10, updated_at:new Date().toISOString() };
     const { error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' });
     if (error) { console.error(error); return false; }

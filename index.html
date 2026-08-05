@@ -683,8 +683,7 @@
     function openReviewModal(event){
       event?.preventDefault();
       event?.stopPropagation();
-      document.getElementById('reviewModal')?.classList.add('show');
-      document.body.classList.add('modal-open');
+      openExclusiveModal('reviewModal');
     }
     async function deleteReview(event){
       event?.preventDefault();
@@ -852,8 +851,7 @@
         document.getElementById('dayEditTabLabel').value = tab?.dataset.tabLabel || '';
         document.getElementById('dayEditTitle').value = section.querySelector('.day-title-row h2')?.textContent.trim() || '';
         document.getElementById('dayEditSummary').value = section.querySelector('.day-subtitle')?.textContent.trim() || '';
-        document.getElementById('dayModal')?.classList.add('show');
-        document.body.classList.add('modal-open');
+        openExclusiveModal('dayModal');
       };
 
       window.saveDayPrototype = function(){

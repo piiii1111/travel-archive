@@ -173,8 +173,8 @@ function setJourneyData(rows){
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
     const tags=Array.isArray(details.tags)?details.tags:[];
-    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${tags.join(' ')} ${(details.cities||[]).join(' ')} ${details.pin_place||''}`;
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',summary:row.summary||'',searchText,details,index};
+    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''}`;
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',defaultRate:Number(row.default_exchange_rate)||1,summary:row.summary||'',searchText,details,index};
   });
   renderStats();renderTimeline();renderMapPins();
   if(document.getElementById('detailView')?.classList.contains('active')&&activeJourneyId){
@@ -200,6 +200,10 @@ function openDetail(journeyId){
   document.getElementById('homeView').classList.add('hidden');document.getElementById('detailView').classList.add('active');document.getElementById('dbStatus')?.classList.add('hidden');closeDayMenus();window.scrollTo(0,0)
 }
 function renderJourneyDetail(journey){
+    journeySettings.start=journey.start||journeySettings.start;
+    journeySettings.end=journey.end||journeySettings.end;
+    journeySettings.mainCurrency=journey.currency||journeySettings.mainCurrency;
+    journeySettings.defaultRate=Number(journey.defaultRate)||journeySettings.defaultRate;
     document.getElementById('detailTitle').textContent=journey.title;
     document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;
     const days=journey.start&&journey.end?Math.max(1,Math.round((new Date(`${journey.end}T00:00:00`)-new Date(`${journey.start}T00:00:00`))/86400000)+1):null;
@@ -250,10 +254,12 @@ function showDay(day,button){
   const addDayButton=document.querySelector('.empty-add-day');
   if(addDayButton)addDayButton.hidden=['info','budget'].includes(String(day));
 }
-function openJourneyModal(){document.getElementById('journeyModal')?.classList.add('show');document.body.classList.add('modal-open')}
-function openDayModal(){document.getElementById('dayModal')?.classList.add('show')}
-function openSpotModal(){document.getElementById('spotModal')?.classList.add('show')}
-function closeModal(id){document.getElementById(id)?.classList.remove('show');document.body.classList.remove('modal-open')}
+function openExclusiveModal(id){document.querySelectorAll('.modal-backdrop.show').forEach(modal=>{if(modal.id!==id)modal.classList.remove('show')});document.getElementById(id)?.classList.add('show');document.body.classList.add('modal-open')}
+window.openExclusiveModal=openExclusiveModal;
+function openJourneyModal(){openExclusiveModal('journeyModal')}
+function openDayModal(){openExclusiveModal('dayModal')}
+function openSpotModal(){openExclusiveModal('spotModal')}
+function closeModal(id){document.getElementById(id)?.classList.remove('show');if(!document.querySelector('.modal-backdrop.show'))document.body.classList.remove('modal-open')}
 function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
 function closeDayMenus(){document.querySelectorAll('.day-menu-panel.show').forEach(panel=>panel.classList.remove('show'))}
 function toggleDayMenu(btn){const panel=btn.nextElementSibling;const shouldOpen=!panel?.classList.contains('show');closeDayMenus();if(shouldOpen)panel?.classList.add('show')}
@@ -273,6 +279,8 @@ function filterJourneys(){
   renderTimeline(filtered);
   renderMapPins(filtered);
 }
+function filterHomeByValue(value,event){event?.preventDefault();event?.stopPropagation();document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();const input=document.getElementById('searchInput');if(input)input.value=value||'';filterJourneys();document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
+window.filterHomeByValue=filterHomeByValue;
 function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
 function addCityInput(value=''){
   const grid=document.getElementById('cityInputGrid');
@@ -519,15 +527,16 @@ function showMissingExpenses(){
 }
 function openExpenseModal(expenseId=null){
   activeExpenseId=expenseId;
-  document.getElementById('expenseModal')?.classList.add('show');document.body.classList.add('modal-open');
+  openExclusiveModal('expenseModal');
   syncMasterSelects();
   const expense=prototypeExpenses.find(item=>item.id===expenseId);
   const today=new Date().toISOString().slice(0,10);
   document.getElementById('expenseModalTitle').textContent=expense?'編輯費用':'新增費用';
   document.getElementById('expenseSaveButton').textContent=expense?'儲存修改':'新增費用';
-  document.getElementById('expenseDate').value=expense?.date||document.getElementById('journeyStart')?.value||today;
-  document.getElementById('expensePhase').value=expense?.phase||phaseFromDate(today);
-  document.getElementById('expenseDay').value=expense?.day||dayFromDate(today);
+  const expenseDate=expense?.date||journeySettings.start||today;
+  document.getElementById('expenseDate').value=expenseDate;
+  document.getElementById('expensePhase').value=expense?.phase||phaseFromDate(expenseDate);
+  document.getElementById('expenseDay').value=expense?.day||dayFromDate(expenseDate);
   document.getElementById('expenseCategory').value=expense?.category||masterData.category[0];
   document.getElementById('expenseItem').value=expense?.item||'';
   document.getElementById('expenseCurrency').value=expense?.currency||journeySettings.mainCurrency;

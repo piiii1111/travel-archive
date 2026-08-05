@@ -553,6 +553,7 @@
   #journeyModal #flightFields,#journeyModal .flight-sections,#journeyModal .flight-card,#journeyModal .two-col{width:100%;min-width:0;max-width:100%}
   #journeyModal input[type="date"],#journeyModal input[type="time"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
   #journeyModal .flight-card{overflow:hidden}
+  #dayModal #dayEditDate{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
 }
 
 
@@ -668,6 +669,8 @@ body.spot-sorting{
 .master-manager-row.is-inactive{opacity:.58;background:var(--paper-2)}
 .master-manager-row input,.master-manager-row select{min-width:0;width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:#fff}
 .master-manager-meta{display:grid;gap:3px;font-size:10px;color:var(--muted)}
+.master-manager-meta button{border:0;background:transparent;padding:0;color:var(--accent-dark);font:inherit;text-align:left;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.journey-tag-links{display:inline-flex;gap:5px;flex-wrap:wrap;margin-left:6px}.journey-tag-links button{border:1px solid var(--line);border-radius:999px;background:var(--paper-2);padding:3px 7px;color:var(--muted);font-size:9px;cursor:pointer}
 .master-manager-actions{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}.master-manager-actions button{padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:10px}.master-manager-actions .danger{color:#9a4038;border-color:#d8aaa5}
 @media(max-width:759px){.master-data-action{padding-inline:10px}.master-manager-add{grid-template-columns:1fr auto}.master-manager-add select{grid-column:1/-1}.master-manager-row{grid-template-columns:1fr}.master-manager-actions{justify-content:flex-start}.master-data-modal{max-height:calc(100dvh - 28px);padding-bottom:calc(22px + env(safe-area-inset-bottom))}}
 @media(max-width:759px){.add-journey-action{flex-direction:column;gap:0;line-height:1.15}.add-journey-icon{display:block;font-size:16px}.add-journey-action span:last-child{display:block}}
@@ -710,10 +713,13 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
     position:sticky;
     bottom:-1px;
     z-index:8;
-    margin:16px -18px -18px;
-    padding:18px 18px calc(14px + env(safe-area-inset-bottom));
+    width:auto;
+    margin:16px -17px calc(-19px - env(safe-area-inset-bottom));
+    padding:18px 17px calc(19px + env(safe-area-inset-bottom));
     background:var(--paper);
-    box-shadow:0 -10px 24px rgba(40,42,40,.07);
+    border-top:1px solid var(--line);
+    box-shadow:0 -10px 24px rgba(40,42,40,.09);
+    border-radius:0 0 24px 24px;
     isolation:isolate;
   }
   #journeyModal .journey-modal-actions button{min-height:48px}
