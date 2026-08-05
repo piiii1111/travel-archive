@@ -62,6 +62,7 @@
     }
     .stat strong{display:block;font-size:20px;font-family:Georgia,serif}
     .stat span{font-size:10px;color:var(--muted)}
+    button.stat{color:var(--ink);cursor:pointer}
     .map-card{
       position:relative;padding:8px;background:var(--paper);
       border:1px solid var(--line);border-radius:var(--r-xl);
@@ -552,6 +553,7 @@
 @media(max-width:759px){
   #journeyModal #flightFields,#journeyModal .flight-sections,#journeyModal .flight-card,#journeyModal .two-col{width:100%;min-width:0;max-width:100%}
   #journeyModal input[type="date"],#journeyModal input[type="time"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
+  #journeyModal input[type="datetime-local"],#spotModal input[type="time"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
   #journeyModal .flight-card{overflow:hidden}
   #dayModal #dayEditDate{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
 }
@@ -722,5 +724,7 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
     border-radius:0 0 24px 24px;
     isolation:isolate;
   }
+  #journeyModal .journey-modal-actions::after{content:"";position:absolute;left:0;right:0;top:100%;height:calc(20px + env(safe-area-inset-bottom));background:var(--paper);pointer-events:none}
   #journeyModal .journey-modal-actions button{min-height:48px}
+  #journeyModal #rentalFields .check-chips{margin-bottom:72px}
 }

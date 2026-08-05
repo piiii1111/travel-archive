@@ -12,7 +12,7 @@
   let cachedJourneyRows = [];
   let cachedOptionRows = [];
   let activeManagerType = 'region';
-  const managerTypes = [['region','地區'],['country','國家'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
+  const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
   const defaultOptions = [
     ...['東北亞','東南亞','台灣','歐洲','美洲','大洋洲','其他'].map(value=>['region','',value]),
     ...[['東北亞','日本'],['東北亞','韓國'],['東南亞','泰國'],['東南亞','新加坡'],['台灣','台灣'],['歐洲','英國'],['歐洲','法國'],['美洲','美國'],['其他','其他']].map(([parent,value])=>['country',parent,value]),
@@ -230,8 +230,12 @@
       return;
     }
     const rows = await Promise.all((data || []).map(resolveCoverUrl));
-    const { data: optionRows, error: optionError } = await client.from('journey_options').select('*').order('created_at', { ascending: true });
+    let { data: optionRows, error: optionError } = await client.from('journey_options').select('*').order('created_at', { ascending: true });
     if (optionError) console.warn('讀取自訂選項失敗，請確認已執行 v1.2.9 SQL：', optionError.message);
+    const knownCities=new Set((optionRows||[]).filter(row=>row.option_type==='city').map(row=>`${row.parent_value}|${row.value}`));
+    const cityOptions=[];
+    rows.forEach(row=>(row.details?.cities||[]).forEach(city=>{const value=String(city||'').trim().replace(/市$/u,'');const key=`${row.country||''}|${value}`;if(value&&!knownCities.has(key)){knownCities.add(key);cityOptions.push({owner_id:currentUser.id,option_type:'city',parent_value:row.country||'',value,is_active:true,sort_order:(knownCities.size+1)*10,updated_at:new Date().toISOString()})}}));
+    if(cityOptions.length){const {data:newCities,error:cityError}=await client.from('journey_options').upsert(cityOptions,{onConflict:'owner_id,option_type,parent_value,value'}).select();if(cityError)console.warn('同步城市 Master Data 失敗：',cityError.message);else optionRows=[...(optionRows||[]),...(newCities||[])]}
     cachedJourneyRows=rows;
     cachedOptionRows=optionRows||[];
     renderJourneys(rows, cachedOptionRows);
@@ -254,6 +258,7 @@
       const details=row.details||{};
       if(option.option_type==='region'&&details.region===option.value)return count+1;
       if(option.option_type==='country'&&row.country===option.value)return count+1;
+      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/市$/u,'')===option.value))return count+1;
       if(option.option_type==='currency'&&row.main_currency===option.value)return count+1;
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value))return count+1;
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value))return count+1;
@@ -265,23 +270,24 @@
     const tabs=$('masterManagerTabs'),list=$('masterManagerList'),parent=$('masterManagerParent');
     if(!tabs||!list||!parent)return;
     tabs.innerHTML=managerTypes.map(([type,label])=>`<button type="button" class="${type===activeManagerType?'active':''}" onclick="switchManagedOptionType('${type}')">${label}</button>`).join('');
-    const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false);
-    parent.hidden=activeManagerType!=='country';
-    parent.innerHTML=regions.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
+    const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false),countries=cachedOptionRows.filter(row=>row.option_type==='country'&&row.is_active!==false);
+    parent.hidden=!['country','city'].includes(activeManagerType);
+    parent.innerHTML=(activeManagerType==='city'?countries:regions).map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
     const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort(optionCompare);
     list.innerHTML=rows.map(row=>{
       const usage=optionUsage(row);
-      const parentSelect=row.option_type==='country'?`<select id="managed-parent-${row.id}">${regions.map(region=>`<option ${region.value===row.parent_value?'selected':''}>${escapeHtml(region.value)}</option>`).join('')}</select>`:'';
+      const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
+      const parentSelect=parentItems.length?`<select id="managed-parent-${row.id}">${parentItems.map(item=>`<option ${item.value===row.parent_value?'selected':''}>${escapeHtml(item.value)}</option>`).join('')}</select>`:'';
       return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} 個 Journey 使用・查看</button>`:`<span>0 個 Journey 使用</span>`}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
   }
 
-  function openMasterDataModal(){activeManagerType='region';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
+  function openMasterDataModal(type='region'){activeManagerType=managerTypes.some(([value])=>value===type)?type:'region';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
   function switchManagedOptionType(type){activeManagerType=type;renderMasterManager()}
 
   async function addManagedOption(){
     const value=$('masterManagerNewValue')?.value.trim();if(!value)return;
-    const parentValue=activeManagerType==='country'?$('masterManagerParent')?.value||'':'';
+    const parentValue=['country','city'].includes(activeManagerType)?$('masterManagerParent')?.value||'':'';
     const saved=await saveJourneyOption(activeManagerType,value,parentValue);
     if(saved===false)return alert('新增失敗，請確認已執行 v1.3.0 SQL。');
     $('masterManagerNewValue').value='';await loadJourneys();
@@ -292,6 +298,7 @@
       const details={...(row.details||{})};let payload=null;
       if(option.option_type==='region'&&details.region===option.value){details.region=newValue;payload={details}}
       if(option.option_type==='country'&&row.country===option.value)payload={country:newValue};
+      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/市$/u,'')===option.value)){details.cities=details.cities.map(city=>String(city).replace(/市$/u,'')===option.value?newValue:city);payload={details}}
       if(option.option_type==='currency'&&row.main_currency===option.value)payload={main_currency:newValue};
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value)){details.transports=details.transports.map(value=>value===option.value?newValue:value);payload={details}}
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value)){details.tags=details.tags.map(value=>value===option.value?newValue:value);payload={details}}
@@ -300,6 +307,10 @@
     if(option.option_type==='region'){
       const {error:countryError}=await client.from('journey_options').update({parent_value:newValue,updated_at:new Date().toISOString()}).eq('option_type','country').eq('parent_value',option.value);
       if(countryError)throw countryError;
+    }
+    if(option.option_type==='country'){
+      const {error:cityError}=await client.from('journey_options').update({parent_value:newValue,updated_at:new Date().toISOString()}).eq('option_type','city').eq('parent_value',option.value);
+      if(cityError)throw cityError;
     }
     const {error}=await client.from('journey_options').update({value:newValue,parent_value:newParent??option.parent_value,updated_at:new Date().toISOString()}).eq('id',option.id);
     if(error)throw error;

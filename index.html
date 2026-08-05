@@ -89,8 +89,8 @@
           <p>地圖 Pin 標記地點，Journey 保存細節。</p>
           <div class="stats">
             <div class="stat"><strong id="journeyCount">4</strong><span>趟旅程</span></div>
-            <div class="stat"><strong id="countryCount">2</strong><span>個國家</span></div>
-            <div class="stat"><strong id="cityCount">4</strong><span>座城市</span></div>
+            <button class="stat" type="button" onclick="openMasterDataModal('country')"><strong id="countryCount">2</strong><span>個國家</span></button>
+            <button class="stat" type="button" onclick="openMasterDataModal('city')"><strong id="cityCount">4</strong><span>座城市</span></button>
           </div>
         </div>
 
@@ -381,7 +381,7 @@
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
         <div class="review-actions">
           <button type="button" onclick="openReviewModal(event)">編輯總心得</button>
-          <button type="button" onclick="deleteReview(event)">刪除總心得</button>
+          <button type="button" onclick="deleteReview(event)">清除心得</button>
         </div>
       </article>
     </section>
@@ -688,7 +688,7 @@
     async function deleteReview(event){
       event?.preventDefault();
       event?.stopPropagation();
-      if(!window.confirm('確定刪除這趟旅行的總心得嗎？')) return;
+      if(!window.confirm('確定清除這趟旅行的心得文字嗎？')) return;
       await window.saveActiveJourneyReview?.('');
     }
   </script>
@@ -801,7 +801,7 @@
         const expenseDay = document.getElementById('expenseDay');
         if (!expenseDay) return;
         const oldValue = expenseDay.value;
-        expenseDay.innerHTML = '<option value="">未指定</option>' + getDayTabs().map((_,i) => `<option>Day ${i+1}</option>`).join('');
+        expenseDay.innerHTML = '<option value="">未指定</option>' + getDayTabs().map((tab,i) => {const value=`Day ${i+1}`,date=sectionForTab(tab)?.dataset.date;return `<option value="${value}">${value}${date?` · ${date.replaceAll('-','/')}`:''}</option>`}).join('');
         if ([...expenseDay.options].some(option => option.value === oldValue)) expenseDay.value = oldValue;
       }
 

@@ -204,6 +204,7 @@ function renderJourneyDetail(journey){
     journeySettings.end=journey.end||journeySettings.end;
     journeySettings.mainCurrency=journey.currency||journeySettings.mainCurrency;
     journeySettings.defaultRate=Number(journey.defaultRate)||journeySettings.defaultRate;
+    syncExpenseDayOptions();
     document.getElementById('detailTitle').textContent=journey.title;
     document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;
     const days=journey.start&&journey.end?Math.max(1,Math.round((new Date(`${journey.end}T00:00:00`)-new Date(`${journey.start}T00:00:00`))/86400000)+1):null;
@@ -473,6 +474,8 @@ function phaseFromDate(date){
   if(date>journeySettings.end) return 'posttrip';
   return 'local';
 }
+function syncExpenseDayOptions(){const select=document.getElementById('expenseDay');if(!select||!journeySettings.start||!journeySettings.end)return;const selected=select.value;const start=new Date(`${journeySettings.start}T00:00:00`),end=new Date(`${journeySettings.end}T00:00:00`);let options='<option value="">未指定</option>',index=1;for(let date=new Date(start);date<=end;date.setDate(date.getDate()+1),index++){const value=`Day ${index}`,label=`${value} · ${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;options+=`<option value="${value}">${label}</option>`}select.innerHTML=options;select.value=selected}
+function localToday(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`}
 function populateSelect(id,items,selected){
   const el=document.getElementById(id); if(!el)return;
   el.innerHTML=items.map(item=>`<option value="${item}" ${item===selected?'selected':''}>${item}</option>`).join('');
@@ -530,10 +533,10 @@ function openExpenseModal(expenseId=null){
   openExclusiveModal('expenseModal');
   syncMasterSelects();
   const expense=prototypeExpenses.find(item=>item.id===expenseId);
-  const today=new Date().toISOString().slice(0,10);
+  const today=localToday();
   document.getElementById('expenseModalTitle').textContent=expense?'編輯費用':'新增費用';
   document.getElementById('expenseSaveButton').textContent=expense?'儲存修改':'新增費用';
-  const expenseDate=expense?.date||journeySettings.start||today;
+  const expenseDate=expense?.date||today;
   document.getElementById('expenseDate').value=expenseDate;
   document.getElementById('expensePhase').value=expense?.phase||phaseFromDate(expenseDate);
   document.getElementById('expenseDay').value=expense?.day||dayFromDate(expenseDate);
@@ -623,7 +626,7 @@ function refreshDayOrder(){
     }
   });
   prototypeExpenses.forEach(expense=>{if(expense.date)expense.day=dayFromDate(expense.date)});
-  const daySelect=document.getElementById('expenseDay');if(daySelect){const selected=daySelect.value;daySelect.innerHTML='<option value="">未指定</option>'+tabs.map((_,i)=>`<option>Day ${i+1}</option>`).join('');daySelect.value=selected;}
+  syncExpenseDayOptions();
   renderBudget();
 }
 function initDayDragging(){
