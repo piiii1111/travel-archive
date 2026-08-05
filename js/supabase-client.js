@@ -237,6 +237,22 @@
     const cityOptions=[];
     rows.forEach(row=>(row.details?.cities||[]).forEach(city=>{const value=String(city||'').trim().replace(/市$/u,'');const key=`${row.country||''}|${value}`;if(value&&!knownCities.has(key)){knownCities.add(key);cityOptions.push({owner_id:currentUser.id,option_type:'city',parent_value:row.country||'',value,is_active:true,sort_order:(knownCities.size+1)*10,updated_at:new Date().toISOString()})}}));
     if(cityOptions.length){const {data:newCities,error:cityError}=await client.from('journey_options').upsert(cityOptions,{onConflict:'owner_id,option_type,parent_value,value'}).select();if(cityError)console.warn('同步城市 Master Data 失敗：',cityError.message);else optionRows=[...(optionRows||[]),...(newCities||[])]}
+    const cityMaster=(optionRows||[]).filter(row=>row.option_type==='city');
+    await Promise.all(rows.map(async row=>{
+      const original=Array.isArray(row.details?.cities)?row.details.cities:[];
+      const normalized=[];
+      original.forEach(city=>{
+        const key=String(city||'').trim().replace(/市$/u,'');
+        const master=cityMaster.find(option=>option.parent_value===row.country&&String(option.value).replace(/市$/u,'')===key);
+        const value=master?.value||key;
+        if(value&&!normalized.includes(value))normalized.push(value);
+      });
+      if(JSON.stringify(original)!==JSON.stringify(normalized)){
+        row.details={...(row.details||{}),cities:normalized};
+        const {error:cityNormalizeError}=await client.from('journeys').update({details:row.details,updated_at:new Date().toISOString()}).eq('id',row.id);
+        if(cityNormalizeError)console.warn('統一城市名稱失敗：',cityNormalizeError.message);
+      }
+    }));
     cachedJourneyRows=rows;
     cachedOptionRows=optionRows||[];
     renderJourneys(rows, cachedOptionRows);
@@ -587,6 +603,7 @@
     const tabs=document.querySelector('.day-tabs-scroll'),info=document.querySelector('.journey-info-section');
     if(!tabs||!info)return;
     tabs.querySelectorAll('.day-tab[data-sortable-day]').forEach(node=>node.remove());
+    tabs.querySelectorAll('.add-day-tab').forEach(node=>node.remove());
     document.querySelectorAll('.day-section[data-day]').forEach(section=>{if(/^\d+$/.test(section.dataset.day||''))section.remove()});
     rows.forEach((row,index)=>{
       const number=index+1,label=row.tab_label||'',date=dayDisplayDate(row.day_date);
@@ -599,9 +616,7 @@
       section.innerHTML=`<div class="day-kicker">DAY ${String(number).padStart(2,'0')} · ${date.kicker}</div><div class="day-date">${date.text}</div><div class="day-title-row"><div><h2>${escapeHtml(row.title||'未命名的一天')}</h2><p class="day-subtitle">${escapeHtml(row.summary||'')}</p></div><div class="day-menu"><button type="button" onclick="toggleDayMenu(this)">⋯</button><div class="day-menu-panel"><button type="button" onclick="openDayModal('${row.id}')">編輯 Day ${number}</button><button type="button" onclick="openSpotModal()">新增行程節點</button><button type="button" class="danger" onclick="deleteJourneyDay('${row.id}')">刪除 Day ${number}</button></div></div></div><div class="timeline draggable-list"></div><button class="add-spot" type="button" onclick="openSpotModal()">＋ 新增 Day ${number} 行程節點</button>`;
       info.parentNode.insertBefore(section,info);
     });
-    if(!rows.length){
-      const firstDay=document.createElement('button');firstDay.type='button';firstDay.className='day-tab';firstDay.textContent='＋ 新增第一天';firstDay.onclick=()=>window.openDayModal?.();tabs.appendChild(firstDay);
-    }
+    const addDay=document.createElement('button');addDay.type='button';addDay.className='day-tab add-day-tab';addDay.textContent='＋ 新增一天';addDay.onclick=()=>window.openDayModal?.();tabs.appendChild(addDay);
     window.syncExpenseDayOptions?.();
   }
 

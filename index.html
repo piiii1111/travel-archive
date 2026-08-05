@@ -147,6 +147,7 @@
               <p class="summary">南國公路、海邊與一家人的慢步調假期。</p>
             </article>
           </div>
+          <nav class="journey-pagination" id="journeyPagination" aria-label="Journey 分頁"></nav>
         </section>
       </div>
     </section>
@@ -852,7 +853,7 @@
           const next=dates.length?new Date(dates.at(-1)):parseDateInput(window.currentJourneyStart)||new Date();
           if(dates.length)next.setDate(next.getDate()+1);
           const nextValue=toInputDate(next);
-          if(window.currentJourneyEnd&&nextValue>window.currentJourneyEnd)return alert('已到旅程結束日期，無法再新增一天。');
+          if(window.currentJourneyEnd&&nextValue>window.currentJourneyEnd&&!confirm(`新增日期 ${nextValue.replaceAll('-','/')} 已超過旅程結束日期 ${window.currentJourneyEnd.replaceAll('-','/')}。\n\n可能是轉機或延伸行程，仍要新增嗎？`))return;
           document.getElementById('dayEditId').value='';
           document.getElementById('dayEditDate').value=nextValue;
           document.getElementById('dayEditTabLabel').value='';
@@ -875,7 +876,7 @@
         const tab = section ? tabForSection(section) : null;
         const dateValue = document.getElementById('dayEditDate').value;
         if (!parseDateInput(dateValue)) { alert('請輸入有效日期'); return; }
-        if((window.currentJourneyStart&&dateValue<window.currentJourneyStart)||(window.currentJourneyEnd&&dateValue>window.currentJourneyEnd)){alert('Day 日期必須在旅程開始與結束日期之間。');return;}
+        if((window.currentJourneyStart&&dateValue<window.currentJourneyStart)||(window.currentJourneyEnd&&dateValue>window.currentJourneyEnd)){if(!confirm('這個 Day 日期超出旅程開始與結束日期。仍要儲存嗎？'))return;}
         if(window.saveJourneyDay){
           const saved=await window.saveJourneyDay({id,date:dateValue,tabLabel:document.getElementById('dayEditTabLabel').value.trim(),title:document.getElementById('dayEditTitle').value.trim()||'未命名的一天',summary:document.getElementById('dayEditSummary').value.trim()});
           if(saved){closeModal('dayModal');document.querySelector('.journey-info-tab')?.click();}

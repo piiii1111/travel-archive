@@ -1,4 +1,4 @@
-Travel Archive v1.4.0｜Supabase Connection
+Travel Archive v1.4.1｜Supabase Connection
 
 這個版本已完成：
 1. Email＋密碼註冊／登入
@@ -24,6 +24,15 @@ v1.4.0 下一階段：
 - Day 正式改用 Supabase：支援新增、編輯、刪除、日期排序與拖曳排序後保存。
 - 首次使用 v1.4.0 前，請在 Supabase 新增查詢並執行 supabase-v1.4.0-days-migration.sql。
 - 本階段尚未把 Spot 與 Expense 寫入 Supabase，會在 Day 驗收完成後接續處理。
+
+v1.4.1 修正：
+- Journey 城市依 Master Data 名稱統一並去除重複，例如「別府／別府市」統一為「別府」。
+- Day 頁籤固定保留一個「＋ 新增一天」，不再重複累積或消失。
+- 超出 Journey 日期時改為確認後仍可新增，支援轉機與延伸行程。
+- 修正 Day 拖曳時的日期唯一限制錯誤；請執行 supabase-v1.4.1-day-drag-fix.sql。
+- 刪除 Day 後，新增日期重新依目前最後一天計算。
+- Day Modal 不再因桌機拖選文字而誤關閉。
+- 首頁 Journey 搜尋結果改為每頁五筆，超過時顯示分頁。
 
 
 v1.2.1 修正：

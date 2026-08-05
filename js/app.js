@@ -265,25 +265,38 @@ function openJourneyModal(){openExclusiveModal('journeyModal')}
 function openDayModal(){openExclusiveModal('dayModal')}
 function openSpotModal(){openExclusiveModal('spotModal')}
 function closeModal(id){document.getElementById(id)?.classList.remove('show');if(!document.querySelector('.modal-backdrop.show'))document.body.classList.remove('modal-open')}
-function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
+function closeOnBackdrop(e,id){if(['journeyModal','masterDataModal','dayModal'].includes(id))return;if(e.target.id===id)closeModal(id)}
 function closeDayMenus(){document.querySelectorAll('.day-menu-panel.show').forEach(panel=>panel.classList.remove('show'))}
 function toggleDayMenu(btn){const panel=btn.nextElementSibling;const shouldOpen=!panel?.classList.contains('show');closeDayMenus();if(shouldOpen)panel?.classList.add('show')}
 function toggleThought(btn){btn.nextElementSibling?.classList.toggle('show')}
 function switchMode(mode,btn){document.querySelectorAll('.mode-tab').forEach(b=>b.classList.remove('active'));btn.classList.add('active')}
-function filterJourneys(){
+let journeyPage=1;
+const journeyPageSize=5;
+function filterJourneys(keepPage=false){
+  if(!keepPage)journeyPage=1;
   const q=normalizeText(document.getElementById('searchInput')?.value).toLowerCase();
   const region=document.getElementById('regionFilter')?.value||'all';
   const filtered=journeys.filter(j=>(!q||String(j.searchText||'').toLowerCase().includes(q))&&(region==='all'||j.region===region));
-  let shown=0;
+  const totalPages=Math.max(1,Math.ceil(filtered.length/journeyPageSize));
+  journeyPage=Math.min(journeyPage,totalPages);
+  const start=(journeyPage-1)*journeyPageSize;
+  let matchedIndex=0;
   document.querySelectorAll('.journey-card').forEach(card=>{
     const matches=(!q||String(card.dataset.search||'').toLowerCase().includes(q))&&(region==='all'||card.dataset.region===region);
-    const visible=matches&&shown<5;
+    const visible=matches&&matchedIndex>=start&&matchedIndex<start+journeyPageSize;
     card.style.display=visible?'':'none';
-    if(visible)shown+=1;
+    if(matches)matchedIndex+=1;
   });
+  const pagination=document.getElementById('journeyPagination');
+  if(pagination){
+    pagination.hidden=filtered.length<=journeyPageSize;
+    pagination.innerHTML=filtered.length<=journeyPageSize?'':`<button type="button" ${journeyPage===1?'disabled':''} onclick="setJourneyPage(${journeyPage-1})">‹ 上一頁</button><span>${journeyPage} / ${totalPages}</span><button type="button" ${journeyPage===totalPages?'disabled':''} onclick="setJourneyPage(${journeyPage+1})">下一頁 ›</button>`;
+  }
   renderTimeline(filtered);
   renderMapPins(filtered);
 }
+function setJourneyPage(page){journeyPage=Math.max(1,Number(page)||1);filterJourneys(true);document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
+window.setJourneyPage=setJourneyPage;
 function filterHomeByValue(value,event){event?.preventDefault();event?.stopPropagation();document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();const input=document.getElementById('searchInput');if(input)input.value=value||'';filterJourneys();document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
 window.filterHomeByValue=filterHomeByValue;
 function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
