@@ -556,6 +556,8 @@
   #journeyModal input[type="datetime-local"],#spotModal input[type="time"]{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
   #journeyModal .flight-card{overflow:hidden}
   #dayModal #dayEditDate{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
+  #expenseModal #expenseDate{-webkit-appearance:none;appearance:none;display:block;box-sizing:border-box;width:100%;min-width:0;max-width:100%;font-size:16px;text-align:left}
+  #expenseModal .two-col,#expenseModal .field{width:100%;min-width:0;max-width:100%}
 }
 
 

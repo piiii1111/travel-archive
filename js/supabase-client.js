@@ -12,6 +12,7 @@
   let cachedJourneyRows = [];
   let cachedOptionRows = [];
   let activeManagerType = 'region';
+  let activeManagerParent = '';
   const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
   const defaultOptions = [
     ...['東北亞','東南亞','台灣','歐洲','美洲','大洋洲','其他'].map(value=>['region','',value]),
@@ -271,9 +272,10 @@
     if(!tabs||!list||!parent)return;
     tabs.innerHTML=managerTypes.map(([type,label])=>`<button type="button" class="${type===activeManagerType?'active':''}" onclick="switchManagedOptionType('${type}')">${label}</button>`).join('');
     const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false).sort(optionCompare),countries=cachedOptionRows.filter(row=>row.option_type==='country'&&row.is_active!==false).sort(optionCompare);
-    parent.hidden=!['country','city'].includes(activeManagerType);
-    parent.innerHTML=(activeManagerType==='city'?countries:regions).map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
-    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType).sort(optionCompare);
+    const usesParent=['country','city'].includes(activeManagerType),filterParents=activeManagerType==='city'?countries:regions;
+    parent.hidden=!usesParent;
+    if(usesParent){if(!filterParents.some(row=>row.value===activeManagerParent))activeManagerParent=filterParents[0]?.value||'';parent.innerHTML=filterParents.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');parent.value=activeManagerParent;parent.onchange=()=>setManagedParentFilter(parent.value)}else{activeManagerParent='';parent.onchange=null}
+    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType&&(!usesParent||row.parent_value===activeManagerParent)).sort(optionCompare);
     list.innerHTML=rows.map(row=>{
       const usage=optionUsage(row);
       const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
@@ -282,8 +284,9 @@
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
   }
 
-  function openMasterDataModal(type='region'){activeManagerType=managerTypes.some(([value])=>value===type)?type:'region';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
-  function switchManagedOptionType(type){activeManagerType=type;renderMasterManager()}
+  function openMasterDataModal(type='region'){activeManagerType=managerTypes.some(([value])=>value===type)?type:'region';activeManagerParent='';renderMasterManager();window.openExclusiveModal?.('masterDataModal')}
+  function switchManagedOptionType(type){activeManagerType=type;activeManagerParent='';renderMasterManager()}
+  function setManagedParentFilter(value){activeManagerParent=value||'';renderMasterManager()}
 
   async function addManagedOption(){
     const value=$('masterManagerNewValue')?.value.trim();if(!value)return;
@@ -334,7 +337,7 @@
 
   async function moveManagedOption(id,direction){
     const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
-    const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type).sort(optionCompare);
+    const siblings=cachedOptionRows.filter(row=>row.option_type===option.option_type&&(!['country','city'].includes(option.option_type)||row.parent_value===option.parent_value)).sort(optionCompare);
     const index=siblings.findIndex(row=>row.id===id),targetIndex=index+Number(direction);
     if(index<0||targetIndex<0||targetIndex>=siblings.length)return;
     const reordered=[...siblings];const [moved]=reordered.splice(index,1);reordered.splice(targetIndex,0,moved);
@@ -472,7 +475,7 @@
 
   async function saveJourneyOption(optionType, value, parentValue = '') {
     if (!currentUser) return false;
-    const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType).map(row=>Number(row.sort_order)||0);
+    const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType&&(!['country','city'].includes(optionType)||row.parent_value===(parentValue||''))).map(row=>Number(row.sort_order)||0);
     const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value, is_active:true, sort_order:Math.max(0,...siblingOrders)+10, updated_at:new Date().toISOString() };
     const { error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' });
     if (error) { console.error(error); return false; }
@@ -594,6 +597,7 @@
     window.saveJourneySummary = saveJourneySummary;
     window.openMasterDataModal = openMasterDataModal;
     window.switchManagedOptionType = switchManagedOptionType;
+    window.setManagedParentFilter = setManagedParentFilter;
     window.addManagedOption = addManagedOption;
     window.renameManagedOption = renameManagedOption;
     window.toggleManagedOption = toggleManagedOption;
