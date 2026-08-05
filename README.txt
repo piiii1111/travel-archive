@@ -1,4 +1,4 @@
-Travel Archive v1.2｜Supabase Connection
+Travel Archive v1.4.0｜Supabase Connection
 
 這個版本已完成：
 1. Email＋密碼註冊／登入
@@ -17,6 +17,13 @@ Travel Archive v1.2｜Supabase Connection
 安全提醒：
 - index 與 JS 中只使用 sb_publishable_...，這是前端可公開的低權限金鑰。
 - 絕對不要放入 sb_secret_... 或 service_role。
+
+v1.4.0 下一階段：
+- Master data 的「國家」「城市」篩選新增第一個選項「全部」。
+- 選擇「全部」可一次查看該類別的完整清單；新增資料前仍須選擇所屬地區／國家。
+- Day 正式改用 Supabase：支援新增、編輯、刪除、日期排序與拖曳排序後保存。
+- 首次使用 v1.4.0 前，請在 Supabase 新增查詢並執行 supabase-v1.4.0-days-migration.sql。
+- 本階段尚未把 Spot 與 Expense 寫入 Supabase，會在 Day 驗收完成後接續處理。
 
 
 v1.2.1 修正：

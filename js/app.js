@@ -193,15 +193,19 @@ function openDetail(journeyId){
   const journey=journeys.find(item=>String(item.id)===String(journeyId));
   if(journey){
     activeJourneyId=journey.id;
+    window.currentJourneyId=journey.id;
     renderJourneyDetail(journey);
     const infoTab=document.querySelector('.journey-info-tab');
     if(infoTab)showDay('info',infoTab);
+    window.loadJourneyDays?.(journey.id);
   }
   document.getElementById('homeView').classList.add('hidden');document.getElementById('detailView').classList.add('active');document.getElementById('dbStatus')?.classList.add('hidden');closeDayMenus();window.scrollTo(0,0)
 }
 function renderJourneyDetail(journey){
     journeySettings.start=journey.start||journeySettings.start;
     journeySettings.end=journey.end||journeySettings.end;
+    window.currentJourneyStart=journey.start||'';
+    window.currentJourneyEnd=journey.end||'';
     journeySettings.mainCurrency=journey.currency||journeySettings.mainCurrency;
     journeySettings.defaultRate=Number(journey.defaultRate)||journeySettings.defaultRate;
     syncExpenseDayOptions();

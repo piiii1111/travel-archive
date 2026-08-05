@@ -274,8 +274,8 @@
     const regions=cachedOptionRows.filter(row=>row.option_type==='region'&&row.is_active!==false).sort(optionCompare),countries=cachedOptionRows.filter(row=>row.option_type==='country'&&row.is_active!==false).sort(optionCompare);
     const usesParent=['country','city'].includes(activeManagerType),filterParents=activeManagerType==='city'?countries:regions;
     parent.hidden=!usesParent;
-    if(usesParent){if(!filterParents.some(row=>row.value===activeManagerParent))activeManagerParent=filterParents[0]?.value||'';parent.innerHTML=filterParents.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');parent.value=activeManagerParent;parent.onchange=()=>setManagedParentFilter(parent.value)}else{activeManagerParent='';parent.onchange=null}
-    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType&&(!usesParent||row.parent_value===activeManagerParent)).sort(optionCompare);
+    if(usesParent){if(activeManagerParent&&!filterParents.some(row=>row.value===activeManagerParent))activeManagerParent='';parent.innerHTML='<option value="">全部</option>'+filterParents.map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');parent.value=activeManagerParent;parent.onchange=()=>setManagedParentFilter(parent.value)}else{activeManagerParent='';parent.onchange=null}
+    const rows=cachedOptionRows.filter(row=>row.option_type===activeManagerType&&(!usesParent||!activeManagerParent||row.parent_value===activeManagerParent)).sort(optionCompare);
     list.innerHTML=rows.map(row=>{
       const usage=optionUsage(row);
       const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
@@ -291,6 +291,7 @@
   async function addManagedOption(){
     const value=$('masterManagerNewValue')?.value.trim();if(!value)return;
     const parentValue=['country','city'].includes(activeManagerType)?$('masterManagerParent')?.value||'':'';
+    if(['country','city'].includes(activeManagerType)&&!parentValue)return alert(`新增${activeManagerType==='country'?'國家':'城市'}前，請先選擇所屬${activeManagerType==='country'?'地區':'國家'}。`);
     const saved=await saveJourneyOption(activeManagerType,value,parentValue);
     if(saved===false)return alert('新增失敗，請確認已執行 v1.3.0 SQL。');
     $('masterManagerNewValue').value='';await loadJourneys();
@@ -577,6 +578,60 @@
     await loadJourneys();
   }
 
+  function dayDisplayDate(value){
+    const date=new Date(`${value}T00:00:00`),week=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    return {kicker:week[date.getDay()],text:`${date.getFullYear()} 年 ${String(date.getMonth()+1).padStart(2,'0')} 月 ${String(date.getDate()).padStart(2,'0')} 日`};
+  }
+
+  function renderJourneyDays(rows){
+    const tabs=document.querySelector('.day-tabs-scroll'),info=document.querySelector('.journey-info-section');
+    if(!tabs||!info)return;
+    tabs.querySelectorAll('.day-tab[data-sortable-day]').forEach(node=>node.remove());
+    document.querySelectorAll('.day-section[data-day]').forEach(section=>{if(/^\d+$/.test(section.dataset.day||''))section.remove()});
+    rows.forEach((row,index)=>{
+      const number=index+1,label=row.tab_label||'',date=dayDisplayDate(row.day_date);
+      const tab=document.createElement('button');
+      tab.className='day-tab';tab.type='button';tab.draggable=true;tab.dataset.sortableDay=String(number);tab.dataset.dayId=row.id;tab.dataset.tabLabel=label;
+      tab.setAttribute('onclick',`showDay(${number},this)`);tab.innerHTML=`<span class="day-drag-handle" aria-hidden="true">⋮⋮</span>Day ${number}${label?` ${escapeHtml(label)}`:''}`;
+      tabs.insertBefore(tab,tabs.querySelector('.journey-info-tab'));
+      const section=document.createElement('section');
+      section.className='day-section';section.dataset.day=String(number);section.dataset.dayId=row.id;section.dataset.date=row.day_date;
+      section.innerHTML=`<div class="day-kicker">DAY ${String(number).padStart(2,'0')} · ${date.kicker}</div><div class="day-date">${date.text}</div><div class="day-title-row"><div><h2>${escapeHtml(row.title||'未命名的一天')}</h2><p class="day-subtitle">${escapeHtml(row.summary||'')}</p></div><div class="day-menu"><button type="button" onclick="toggleDayMenu(this)">⋯</button><div class="day-menu-panel"><button type="button" onclick="openDayModal('${row.id}')">編輯 Day ${number}</button><button type="button" onclick="openSpotModal()">新增行程節點</button><button type="button" class="danger" onclick="deleteJourneyDay('${row.id}')">刪除 Day ${number}</button></div></div></div><div class="timeline draggable-list"></div><button class="add-spot" type="button" onclick="openSpotModal()">＋ 新增 Day ${number} 行程節點</button>`;
+      info.parentNode.insertBefore(section,info);
+    });
+    if(!rows.length){
+      const firstDay=document.createElement('button');firstDay.type='button';firstDay.className='day-tab';firstDay.textContent='＋ 新增第一天';firstDay.onclick=()=>window.openDayModal?.();tabs.appendChild(firstDay);
+    }
+    window.syncExpenseDayOptions?.();
+  }
+
+  async function loadJourneyDays(journeyId){
+    const {data,error}=await client.from('days').select('*').eq('journey_id',journeyId).order('sort_order').order('day_date');
+    if(error){console.error(error);setStatus(`Day 載入失敗：${error.message}`,'error');return false}
+    renderJourneyDays(data||[]);return true;
+  }
+  async function normalizeJourneyDays(journeyId){
+    const {data,error}=await client.from('days').select('id,day_date').eq('journey_id',journeyId).order('day_date');if(error)throw error;
+    await Promise.all((data||[]).map((row,index)=>client.from('days').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',row.id)));
+  }
+  async function saveJourneyDay(values){
+    if(!currentUser||!window.currentJourneyId)return false;
+    const payload={journey_id:window.currentJourneyId,owner_id:currentUser.id,day_date:values.date,tab_label:values.tabLabel||'',title:values.title||'',summary:values.summary||'',updated_at:new Date().toISOString()};
+    const {error}=await (values.id?client.from('days').update(payload).eq('id',values.id):client.from('days').insert(payload));
+    if(error){alert(`Day 儲存失敗：${error.message}`);return false}
+    try{await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);return true}catch(error){alert(`Day 排序失敗：${error.message}`);return false}
+  }
+  async function deleteJourneyDay(id){
+    if(!confirm('確定刪除這一天嗎？這一天之後建立的資料也會一起刪除。'))return;
+    const {error}=await client.from('days').delete().eq('id',id);if(error)return alert(`刪除失敗：${error.message}`);
+    await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);document.querySelector('.journey-info-tab')?.click();
+  }
+  async function persistJourneyDayOrder(records){
+    const results=await Promise.all((records||[]).map((row,index)=>client.from('days').update({sort_order:index,day_date:row.date,updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const failed=results.find(result=>result.error);if(failed)return alert(`Day 排序儲存失敗：${failed.error.message}`);
+    await loadJourneyDays(window.currentJourneyId);
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     $('signUpButton')?.addEventListener('click', signUp);
     $('signInButton')?.addEventListener('click', signIn);
@@ -603,6 +658,10 @@
     window.toggleManagedOption = toggleManagedOption;
     window.moveManagedOption = moveManagedOption;
     window.deleteManagedOption = deleteManagedOption;
+    window.loadJourneyDays = loadJourneyDays;
+    window.saveJourneyDay = saveJourneyDay;
+    window.deleteJourneyDay = deleteJourneyDay;
+    window.persistJourneyDayOrder = persistJourneyDayOrder;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {

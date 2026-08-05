@@ -844,10 +844,22 @@
       window.openDayModal = function(dayRef){
         ensureEveryDayHasMenu();
         let section = null;
-        if (typeof dayRef === 'string' && dayRef.startsWith('day-')) section = document.querySelector(`.day-section[data-day-id="${CSS.escape(dayRef)}"]`);
+        if (typeof dayRef === 'string') section = document.querySelector(`.day-section[data-day-id="${CSS.escape(dayRef)}"]`);
         if (!section && dayRef !== undefined) section = document.querySelector(`.day-section[data-day="${dayRef}"]`);
-        if (!section) section = document.querySelector('.day-section.active[data-day]') || getDaySections()[0];
-        if (!section) return;
+        if (!section && dayRef !== undefined) section = document.querySelector('.day-section.active[data-day]') || getDaySections()[0];
+        if (!section) {
+          const dates=getDaySections().map(parseVisibleDate).filter(Boolean).sort((a,b)=>a-b);
+          const next=dates.length?new Date(dates.at(-1)):parseDateInput(window.currentJourneyStart)||new Date();
+          if(dates.length)next.setDate(next.getDate()+1);
+          const nextValue=toInputDate(next);
+          if(window.currentJourneyEnd&&nextValue>window.currentJourneyEnd)return alert('已到旅程結束日期，無法再新增一天。');
+          document.getElementById('dayEditId').value='';
+          document.getElementById('dayEditDate').value=nextValue;
+          document.getElementById('dayEditTabLabel').value='';
+          document.getElementById('dayEditTitle').value='';
+          document.getElementById('dayEditSummary').value='';
+          openExclusiveModal('dayModal');return;
+        }
         const tab = tabForSection(section);
         document.getElementById('dayEditId').value = section.dataset.dayId;
         document.getElementById('dayEditDate').value = section.dataset.date || toInputDate(parseVisibleDate(section) || new Date());
@@ -857,13 +869,19 @@
         openExclusiveModal('dayModal');
       };
 
-      window.saveDayPrototype = function(){
+      window.saveDayPrototype = async function(){
         const id = document.getElementById('dayEditId').value;
         const section = document.querySelector(`.day-section[data-day-id="${CSS.escape(id)}"]`);
         const tab = section ? tabForSection(section) : null;
-        if (!section || !tab) return;
         const dateValue = document.getElementById('dayEditDate').value;
         if (!parseDateInput(dateValue)) { alert('請輸入有效日期'); return; }
+        if((window.currentJourneyStart&&dateValue<window.currentJourneyStart)||(window.currentJourneyEnd&&dateValue>window.currentJourneyEnd)){alert('Day 日期必須在旅程開始與結束日期之間。');return;}
+        if(window.saveJourneyDay){
+          const saved=await window.saveJourneyDay({id,date:dateValue,tabLabel:document.getElementById('dayEditTabLabel').value.trim(),title:document.getElementById('dayEditTitle').value.trim()||'未命名的一天',summary:document.getElementById('dayEditSummary').value.trim()});
+          if(saved){closeModal('dayModal');document.querySelector('.journey-info-tab')?.click();}
+          return;
+        }
+        if (!section || !tab) return;
         section.dataset.date = dateValue;
         tab.dataset.tabLabel = document.getElementById('dayEditTabLabel').value.trim();
         const title = section.querySelector('.day-title-row h2');
@@ -901,6 +919,7 @@
         event.stopImmediatePropagation();
         // Dragging exchanges whole-day content. Dates are reassigned continuously by the new position.
         renumberCurrentOrder({assignContinuousDates:true});
+        window.persistJourneyDayOrder?.(getDayTabs().map(tab=>({id:tab.dataset.dayId,date:sectionForTab(tab)?.dataset.date})));
         clearDayDragState();
         suppressClickUntil = Date.now() + 350;
       }, true);
