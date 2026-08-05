@@ -12,19 +12,21 @@
   let cachedJourneyRows = [];
   let cachedOptionRows = [];
   let cachedSpotRows = [];
+  let cachedAllSpotRows = [];
   let activeManagerType = 'region';
   let activeManagerParent = '';
   let activeManagerPage = 1;
   const managerPageSize = 10;
   let movingManagedOption = false;
-  const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['tag','旅遊標籤']];
+  const managerTypes = [['region','地區'],['country','國家'],['city','城市'],['currency','貨幣'],['expense_category','費用類別'],['payer','付款來源'],['transport','交通方式'],['spot_type','節點類型'],['tag','旅遊標籤']];
   const defaultOptions = [
     ...['東北亞','東南亞','台灣','歐洲','美洲','大洋洲','其他'].map(value=>['region','',value]),
     ...[['東北亞','日本'],['東北亞','韓國'],['東南亞','泰國'],['東南亞','新加坡'],['台灣','台灣'],['歐洲','英國'],['歐洲','法國'],['美洲','美國'],['其他','其他']].map(([parent,value])=>['country',parent,value]),
     ...['TWD','JPY','USD','EUR','KRW','THB'].map(value=>['currency','',value]),
     ...['機票','住宿','交通','餐飲','購物','票券','通信','保險','其他'].map(value=>['expense_category','',value]),
     ...['共同帳戶','我','同行者','現金'].map(value=>['payer','',value]),
-    ...['租車','地鐵／捷運','JR／火車／近鐵','公車','計程車／Uber','渡輪／船','摩托車','自有車','自行車','步行'].map(value=>['transport','',value])
+    ...['租車','地鐵／捷運','JR／火車／近鐵','公車','計程車／Uber','渡輪／船','摩托車','自有車','自行車','步行'].map(value=>['transport','',value]),
+    ...['景點','交通','住宿','餐廳','購物'].map(value=>['spot_type','',value])
   ];
   const optionCompare=(a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.created_at||'').localeCompare(String(b.created_at||''))||a.value.localeCompare(b.value,'zh-Hant');
   const defaultSortOrder=(type,parent,value)=>{
@@ -259,6 +261,8 @@
     }));
     cachedJourneyRows=rows;
     cachedOptionRows=optionRows||[];
+    const {data:allSpots,error:allSpotsError}=await client.from('spots').select('id,journey_id,spot_type');
+    if(!allSpotsError)cachedAllSpotRows=allSpots||[];
     renderJourneys(rows, cachedOptionRows);
     if ($('masterDataModal')?.classList.contains('show')) renderMasterManager();
     setStatus(`已載入 ${data?.length || 0} 趟旅程`, 'success');
@@ -283,6 +287,7 @@
       if(option.option_type==='currency'&&row.main_currency===option.value)return count+1;
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value))return count+1;
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value))return count+1;
+      if(option.option_type==='spot_type')return cachedAllSpotRows.filter(spot=>spot.spot_type===option.value).length;
       return count;
     },0);
   }
@@ -302,7 +307,9 @@
       const usage=optionUsage(row);
       const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
       const parentSelect=parentItems.length?`<select id="managed-parent-${row.id}">${parentItems.map(item=>`<option ${item.value===row.parent_value?'selected':''}>${escapeHtml(item.value)}</option>`).join('')}</select>`:'';
-      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} 個 Journey 使用・查看</button>`:`<span>0 個 Journey 使用</span>`}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
+      const usageUnit=row.option_type==='spot_type'?'個節點':'個 Journey';
+      const usageHtml=row.option_type==='spot_type'?`<span>${usage} ${usageUnit} 使用</span>`:usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} ${usageUnit} 使用・查看</button>`:`<span>0 ${usageUnit} 使用</span>`;
+      return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usageHtml}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
     const pagination=rows.length>managerPageSize?`<nav class="master-manager-pagination" aria-label="Master Data 分頁"><button type="button" aria-label="第一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(1)">|‹</button><button type="button" aria-label="上一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage-1})">‹</button><span>${activeManagerPage} / ${totalPages}</span><button type="button" aria-label="下一頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage+1})">›</button><button type="button" aria-label="最末頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${totalPages})">›|</button></nav>`:'';
     list.innerHTML=rowHtml+pagination;
@@ -341,6 +348,10 @@
       const {error:cityError}=await client.from('journey_options').update({parent_value:newValue,updated_at:new Date().toISOString()}).eq('option_type','city').eq('parent_value',option.value);
       if(cityError)throw cityError;
     }
+    if(option.option_type==='spot_type'){
+      const {error:spotTypeError}=await client.from('spots').update({spot_type:newValue,updated_at:new Date().toISOString()}).eq('spot_type',option.value);
+      if(spotTypeError)throw spotTypeError;
+    }
     const {error}=await client.from('journey_options').update({value:newValue,parent_value:newParent??option.parent_value,updated_at:new Date().toISOString()}).eq('id',option.id);
     if(error)throw error;
   }
@@ -351,7 +362,8 @@
     if(!value)return alert('名稱不能空白。');
     if(value===option.value&&parent===option.parent_value)return;
     const usage=optionUsage(option);
-    if(usage&&!confirm(`「${option.value}」目前用於 ${usage} 個 Journey。確定同步改名為「${value}」嗎？`))return;
+    const usageUnit=option.option_type==='spot_type'?'個節點':'個 Journey';
+    if(usage&&!confirm(`「${option.value}」目前用於 ${usage} ${usageUnit}。確定同步改名為「${value}」嗎？`))return;
     try{await syncOptionRename(option,value,parent);await loadJourneys()}catch(error){alert(`修改失敗：${error.message}`)}
   }
 
@@ -389,7 +401,7 @@
     const option=cachedOptionRows.find(row=>row.id===id);if(!option)return;
     const usage=optionUsage(option);
     if(option.option_type==='region'&&cachedOptionRows.some(row=>row.option_type==='country'&&row.parent_value===option.value))return alert(`「${option.value}」底下仍有國家，請先移動或刪除這些國家，再刪除地區。`);
-    if(usage)return alert(`「${option.value}」目前仍用於 ${usage} 個 Journey，不能刪除。請改用「停用」。`);
+    if(usage)return alert(`「${option.value}」目前仍用於 ${usage} ${option.option_type==='spot_type'?'個節點':'個 Journey'}，不能刪除。請改用「停用」。`);
     if(!confirm(`確定永久刪除「${option.value}」嗎？`))return;
     const {error}=await client.from('journey_options').delete().eq('id',id);
     if(error)return alert(`刪除失敗：${error.message}`);await loadJourneys();
@@ -667,8 +679,16 @@
     const activeSection=row?document.querySelector(`.day-section[data-day-id="${CSS.escape(row.day_id)}"]`):document.querySelector('.day-section.active[data-day-id]');
     if(!activeSection)return alert('請先切換到要新增行程節點的 Day。');
     $('spotEditId').value=row?.id||'';$('spotDayId').value=row?.day_id||activeSection.dataset.dayId;
-    $('spotType').value=row?.spot_type||'景點';$('spotName').value=row?.name||'';$('spotTime').value=String(row?.visit_time||'').slice(0,5);$('spotNote').value=row?.note||'';$('spotReview').value=row?.review||'';
+    const typeValue=row?.spot_type||'景點';if($('spotType')&&![...$('spotType').options].some(option=>option.value===typeValue))$('spotType').add(new Option(typeValue,typeValue));
+    $('spotType').value=typeValue;$('spotName').value=row?.name||'';$('spotTime').value=String(row?.visit_time||'').slice(0,5);$('spotNote').value=row?.note||'';$('spotReview').value=row?.review||'';
     window.openExclusiveModal?.('spotModal');
+  }
+
+  async function addCustomSpotType(){
+    const value=String(prompt('請輸入新的節點類型名稱')||'').trim();if(!value)return;
+    const saved=await saveJourneyOption('spot_type',value,'');
+    if(!saved)return alert('新增節點類型失敗，請確認已執行 v1.5.1 SQL。');
+    await loadJourneys();if($('spotType'))$('spotType').value=value;
   }
 
   async function saveSpot(){
@@ -689,9 +709,10 @@
 
   async function persistJourneySpotOrder(order){
     const ids=(order||[]).filter(id=>cachedSpotRows.some(row=>row.id===id));if(!ids.length)return;
-    const results=await Promise.all(ids.map((id,index)=>client.from('spots').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',id)));
+    const first=cachedSpotRows.find(row=>row.id===ids[0]),timeSlots=cachedSpotRows.filter(row=>row.day_id===first?.day_id).sort((a,b)=>(Number(a.sort_order)||0)-(Number(b.sort_order)||0)).map(row=>row.visit_time||null);
+    const results=await Promise.all(ids.map((id,index)=>client.from('spots').update({sort_order:index,visit_time:timeSlots[index]??null,updated_at:new Date().toISOString()}).eq('id',id)));
     const failed=results.find(result=>result.error);if(failed)return alert(`行程節點排序失敗：${failed.error.message}`);
-    ids.forEach((id,index)=>{const row=cachedSpotRows.find(item=>item.id===id);if(row)row.sort_order=index});
+    await loadJourneySpots(window.currentJourneyId);
   }
   async function normalizeJourneyDays(journeyId){
     const {data,error}=await client.from('days').select('id,day_date').eq('journey_id',journeyId).order('day_date');if(error)throw error;
@@ -700,9 +721,9 @@
   async function saveJourneyDay(values){
     if(!currentUser||!window.currentJourneyId)return false;
     const payload={journey_id:window.currentJourneyId,owner_id:currentUser.id,day_date:values.date,tab_label:values.tabLabel||'',title:values.title||'',summary:values.summary||'',updated_at:new Date().toISOString()};
-    const {error}=await (values.id?client.from('days').update(payload).eq('id',values.id):client.from('days').insert(payload));
+    const {data,error}=await (values.id?client.from('days').update(payload).eq('id',values.id):client.from('days').insert(payload)).select('id').single();
     if(error){alert(`Day 儲存失敗：${error.message}`);return false}
-    try{await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);return true}catch(error){alert(`Day 排序失敗：${error.message}`);return false}
+    try{await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);return data?.id||values.id||true}catch(error){alert(`Day 排序失敗：${error.message}`);return false}
   }
   async function deleteJourneyDay(id){
     if(!confirm('確定刪除這一天嗎？這一天之後建立的資料也會一起刪除。'))return;
@@ -748,6 +769,7 @@
     window.persistJourneyDayOrder = persistJourneyDayOrder;
     window.openSpotModal = openSpotEditor;
     window.saveSpot = saveSpot;
+    window.addCustomSpotType = addCustomSpotType;
     window.deleteJourneySpot = deleteJourneySpot;
     window.persistJourneySpotOrder = persistJourneySpotOrder;
     const originalOpenJourneyModal = window.openJourneyModal;

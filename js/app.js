@@ -449,6 +449,8 @@ function applyManagedMasterOptions(options=[]){
   const categories=values('expense_category');if(categories.length)masterData.category=[...new Set(categories)];
   const payers=values('payer');if(payers.length)masterData.payer=[...new Set(payers)];
   const currencies=values('currency');if(currencies.length)masterData.currency=[...new Set(currencies)];
+  const spotTypes=values('spot_type'),spotTypeSelect=document.getElementById('spotType');
+  if(spotTypeSelect&&spotTypes.length){const previous=spotTypeSelect.value;spotTypeSelect.innerHTML=[...new Set(spotTypes)].map(value=>`<option>${escapeHtml(value)}</option>`).join('');if(spotTypes.includes(previous))spotTypeSelect.value=previous}
   const transports=new Set(values('transport'));
   if(transports.size){
     const transportValues=values('transport');

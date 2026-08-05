@@ -207,6 +207,10 @@
     .day-menu-panel button:hover{background:var(--paper-2)}
     .day-menu-panel .danger{color:var(--danger)}
     .day-subtitle{font-size:11px;color:var(--muted);margin:7px 0 0;line-height:1.6}
+    .day-section[data-day-id] .day-title-row{margin-bottom:18px}
+    .spot-type-input-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+    .spot-type-input-row button{white-space:nowrap}
+    @media(max-width:560px){.spot-type-input-row{grid-template-columns:1fr}.spot-type-input-row button{width:100%}}
     .timeline{position:relative;padding-left:23px}
     .timeline:before{content:"";position:absolute;left:8px;top:8px;bottom:12px;width:1px;background:var(--line-dark)}
     .spot-card{

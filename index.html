@@ -598,7 +598,7 @@
   <div class="modal">
     <div class="modal-head"><h3>新增／編輯行程節點</h3><button onclick="closeModal('spotModal')">×</button></div>
     <input type="hidden" id="spotEditId"><input type="hidden" id="spotDayId">
-    <div class="field"><label for="spotType">類型</label><select id="spotType"><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select></div>
+    <div class="field"><label for="spotType">類型</label><div class="spot-type-input-row"><select id="spotType"><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select><button type="button" class="secondary" onclick="addCustomSpotType()">＋ 新增類別</button></div></div>
     <div class="field"><label for="spotName">名稱</label><input id="spotName" placeholder="例如：宜蘭傳藝中心"></div>
     <div class="field"><label for="spotTime">時間</label><input id="spotTime" type="time"></div>
     <div class="field"><label for="spotNote">備註</label><textarea id="spotNote" rows="3"></textarea></div>
@@ -880,7 +880,7 @@
         if((window.currentJourneyStart&&dateValue<window.currentJourneyStart)||(window.currentJourneyEnd&&dateValue>window.currentJourneyEnd)){if(!confirm('這個 Day 日期超出旅程開始與結束日期。仍要儲存嗎？'))return;}
         if(window.saveJourneyDay){
           const saved=await window.saveJourneyDay({id,date:dateValue,tabLabel:document.getElementById('dayEditTabLabel').value.trim(),title:document.getElementById('dayEditTitle').value.trim()||'未命名的一天',summary:document.getElementById('dayEditSummary').value.trim()});
-          if(saved){closeModal('dayModal');document.querySelector('.journey-info-tab')?.click();}
+          if(saved){closeModal('dayModal');document.querySelector(`.day-tab[data-day-id="${CSS.escape(String(saved))}"]`)?.click();}
           return;
         }
         if (!section || !tab) return;

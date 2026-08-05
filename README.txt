@@ -1,4 +1,4 @@
-Travel Archive v1.5.0｜Supabase Connection
+Travel Archive v1.5.1｜Supabase Connection
 
 這個版本已完成：
 1. Email＋密碼註冊／登入
@@ -55,6 +55,14 @@ v1.5.0 下一階段：Spot 行程節點
 - Day 刪除時，所屬 Spot 會由資料庫一併刪除。
 - 請先執行 supabase-v1.5.0-spots-migration.sql；這份 SQL 相容舊版 spots.user_id 並保留既有資料。
 - Expense 費用仍維持目前階段，待 Spot 驗收後再接 Supabase。
+
+v1.5.1 Spot 驗收修正：
+- Day 編輯儲存後回到剛剛編輯的 Day，新建 Day 也會進入新 Day。
+- Day 摘要與 Spot Timeline 之間增加留白。
+- Spot 拖曳後依位置交換時間；刪除 Spot 不會改動其他節點時間。
+- Spot Modal 可直接新增節點類型。
+- Master Data 新增「節點類型」，支援新增、改名、停用、刪除、排序與使用數量。
+- 請執行 supabase-v1.5.1-spot-types-migration.sql。
 
 
 v1.2.1 修正：
