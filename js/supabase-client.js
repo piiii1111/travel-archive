@@ -124,15 +124,23 @@
       [/胡志明陵寢|胡志明陵寝|胡志明紀念堂/u, 'Ho Chi Minh Mausoleum, Hanoi'],
       [/登別地獄谷溫泉|登别地狱谷温泉/u, 'Noboribetsu Jigokudani']
     ];
-    const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, place.trim());
+    const original = place.trim();
+    const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, original);
     const code = countryCodes[country]||Object.entries(countryCodes).find(([name])=>String(country||'').includes(name))?.[1];
-    const query = code?normalized:[normalized, countryNames[country] || country].filter(Boolean).join(', ');
-    const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'5', addressdetails:'1', namedetails:'1', dedupe:'1', 'accept-language':'zh-TW,zh,en,ja,ko' });
-    if (code) params.set('countrycodes', code);
-    const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
-    if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
-    const results = await response.json();
-    return results[0] || null;
+    const removePrefix = original.replace(/^(?:北京|上海|倫敦|东京|東京|大阪|京都|福岡|釜山|首爾|首尔|曼谷)/u,'').trim();
+    const removeSuffix = original.replace(/(?:溫泉|温泉|國家公園|国家公园)$/u,'').trim();
+    const candidates = [...new Set([normalized, original, removePrefix, removeSuffix].filter(value=>value && value.length >= 2))];
+    for (let index=0; index<candidates.length; index+=1) {
+      if (index) await new Promise(resolve=>setTimeout(resolve,1050));
+      const query = code?candidates[index]:[candidates[index], countryNames[country] || country].filter(Boolean).join(', ');
+      const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'5', addressdetails:'1', namedetails:'1', dedupe:'1', 'accept-language':'zh-TW,zh,en,ja,ko' });
+      if (code) params.set('countrycodes', code);
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
+      if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
+      const results = await response.json();
+      if (results[0]) return results[0];
+    }
+    return null;
   }
 
   function parseCoordinates(value) {

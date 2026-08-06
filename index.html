@@ -12,23 +12,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.5.4">
+  <link rel="stylesheet" href="css/style.css?v=1.5.5">
   <style>
-    /* v1.1.2 Journey Hero actions */
-    .hero-actions{position:absolute;right:18px;top:16px;z-index:3;display:flex;gap:8px;align-items:center}
-    .hero-actions .hero-edit{position:static}
-    .hero-actions .hero-delete{border:1px solid rgba(255,214,210,.42);color:#fff;background:rgba(126,39,34,.36);border-radius:11px;padding:8px 11px;font-size:10px;font-weight:700;backdrop-filter:blur(8px)}
-    .hero-actions .hero-delete:hover{background:rgba(126,39,34,.55)}
-    @media(max-width:620px){.hero-actions{right:12px;top:14px;gap:6px}.hero-actions .hero-edit,.hero-actions .hero-delete{padding:7px 9px;font-size:9px}}
-
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
     .journey-primary-tabs{display:flex;gap:8px;flex-wrap:wrap}
     .journey-primary-tabs .day-tab{flex:0 0 auto}
     .day-tabs-scroll{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;padding-bottom:4px;scrollbar-width:thin}
     .day-tabs-scroll .day-tab{flex:0 0 auto}
-    .review-actions{position:relative;z-index:2;display:flex;gap:8px;flex-wrap:wrap}
-    .review-actions button{position:relative;z-index:3;pointer-events:auto;cursor:pointer}
     @media(max-width:620px){
       .journey-primary-tabs{position:sticky;left:0}
       .journey-primary-tabs .day-tab{min-height:42px}
@@ -155,10 +146,6 @@
     <section class="detail-view" id="detailView">
       <div class="detail-hero has-cover" id="detailHero">
         <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
-        <div class="hero-actions" aria-label="旅程操作">
-          <button class="hero-edit" onclick="editActiveJourney()">✎ 編輯旅程資訊</button>
-          <button class="hero-delete" onclick="deleteActiveJourney()">刪除旅程</button>
-        </div>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
         <h1 id="detailTitle">東京六天五夜</h1>
         <div class="hero-meta-row">
@@ -283,7 +270,10 @@
           <div class="day-kicker">JOURNEY INFORMATION</div>
           <div class="day-title-row">
             <h2>旅程資訊</h2>
-            <button class="header-action" type="button" onclick="editActiveJourney()">✎ 編輯旅程資訊</button>
+            <span class="header-actions">
+              <button class="header-action" type="button" onclick="editActiveJourney()">✎ 編輯旅途</button>
+              <button class="header-action danger" type="button" onclick="deleteActiveJourney()">刪除旅程</button>
+            </span>
           </div>
         </div>
 
@@ -378,10 +368,6 @@
       <article class="review" id="journeyReview">
         <h3>旅遊總心得 · 旅遊標籤</h3>
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
-        <div class="review-actions">
-          <button type="button" onclick="openReviewModal(event)">編輯內容</button>
-          <button type="button" onclick="deleteReview(event)">清除內容</button>
-        </div>
       </article>
     </section>
   </main>
@@ -666,8 +652,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.5.4"></script>
-  <script src="js/supabase-client.js?v=1.5.4"></script>
+  <script src="js/app.js?v=1.5.5"></script>
+  <script src="js/supabase-client.js?v=1.5.5"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

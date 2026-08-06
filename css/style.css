@@ -249,8 +249,6 @@
     }
     .review h3{font-family:"Noto Serif TC",serif;font-size:19px;font-weight:600;margin:0 0 8px}
     .review p{font-size:11px;line-height:1.75;color:rgba(255,255,255,.72);margin:0}
-    .review-actions{display:flex;gap:7px;margin-top:12px}
-    .review-actions button{border:1px solid rgba(255,255,255,.24);background:transparent;color:#fff;border-radius:9px;padding:7px 9px;font-size:9px}
     .empty-add-day{
       width:100%;margin-top:15px;padding:13px;border:1px dashed var(--line-dark);
       background:transparent;border-radius:14px;color:var(--muted);font-size:10px;font-weight:700;
@@ -728,20 +726,26 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
 
 /* v1.2.2: keep Journey save actions reachable on mobile */
 @media(max-width:759px){
+  #journeyModal .modal{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
   #journeyModal .journey-modal-actions{
-    position:sticky;
-    bottom:-1px;
-    z-index:8;
+    position:fixed;
+    left:27px;
+    right:27px;
+    bottom:calc(12px + env(safe-area-inset-bottom));
+    z-index:2002;
     width:auto;
-    margin:16px -17px calc(-19px - env(safe-area-inset-bottom));
-    padding:18px 17px calc(19px + env(safe-area-inset-bottom));
+    margin:0;
+    padding:14px 0;
     background:var(--paper);
     border-top:1px solid var(--line);
     box-shadow:0 -10px 24px rgba(40,42,40,.09);
-    border-radius:0 0 24px 24px;
-    isolation:isolate;
+    border-radius:0 0 18px 18px;
   }
-  #journeyModal .journey-modal-actions::after{content:"";position:absolute;left:0;right:0;top:100%;height:calc(20px + env(safe-area-inset-bottom));background:var(--paper);pointer-events:none}
+  #journeyModal .journey-modal-actions::after{content:none}
   #journeyModal .journey-modal-actions button{min-height:48px}
-  #journeyModal #rentalFields .check-chips{margin-bottom:72px}
+  #journeyModal #rentalFields .check-chips{margin-bottom:18px}
 }
+
+/* v1.5.5: keep Journey detail actions together and outside the clean hero */
+.header-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.header-actions .header-action.danger{color:var(--danger);border-color:#c9aaa7}
