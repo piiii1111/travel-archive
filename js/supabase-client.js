@@ -13,6 +13,9 @@
   let cachedOptionRows = [];
   let cachedSpotRows = [];
   let cachedAllSpotRows = [];
+  let cachedDayRows = [];
+  let cachedExpenseRows = [];
+  let cachedAllExpenseRows = [];
   let activeManagerType = 'region';
   let activeManagerParent = '';
   let activeManagerPage = 1;
@@ -232,7 +235,9 @@
         const tags = Array.isArray(details.tags) ? details.tags : [];
         const summaryText = [row.summary || '', tags.join('、')].filter(Boolean).join(' · ') || '尚未填寫旅程摘要。';
         const spotTypes=Array.isArray(row._spot_types)?row._spot_types:[];
-        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${row.main_currency || ''} ${details.region || ''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities || []).join(' ')} ${(details.transports || []).join(' ')} ${details.pin_place || ''}`;
+        const expenses=Array.isArray(row._expenses)?row._expenses:[];
+        const expenseText=expenses.map(expense=>[expense.category,expense.item,expense.currency,expense.payer,expense.note].filter(Boolean).join(' ')).join(' ');
+        const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${row.main_currency || ''} ${details.region || ''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities || []).join(' ')} ${(details.transports || []).join(' ')} ${details.pin_place || ''} ${expenseText}`;
         return `
         <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
@@ -292,6 +297,9 @@
     cachedOptionRows=optionRows||[];
     const {data:allSpots,error:allSpotsError}=await client.from('spots').select('id,journey_id,spot_type');
     if(!allSpotsError){cachedAllSpotRows=allSpots||[];const typesByJourney=new Map();cachedAllSpotRows.forEach(spot=>{if(!typesByJourney.has(spot.journey_id))typesByJourney.set(spot.journey_id,new Set());if(spot.spot_type)typesByJourney.get(spot.journey_id).add(spot.spot_type)});rows.forEach(row=>row._spot_types=[...(typesByJourney.get(row.id)||[])])}
+    const {data:allExpenses,error:allExpensesError}=await client.from('expenses').select('id,journey_id,category,item,currency,payer,note');
+    if(!allExpensesError){cachedAllExpenseRows=allExpenses||[];const expensesByJourney=new Map();cachedAllExpenseRows.forEach(expense=>{if(!expensesByJourney.has(expense.journey_id))expensesByJourney.set(expense.journey_id,[]);expensesByJourney.get(expense.journey_id).push(expense)});rows.forEach(row=>row._expenses=expensesByJourney.get(row.id)||[])}
+    else console.warn('費用資料尚未啟用，請先執行 v1.6.0 SQL：',allExpensesError.message);
     renderJourneys(rows, cachedOptionRows);
     if ($('masterDataModal')?.classList.contains('show')) renderMasterManager();
     window.filterJourneys?.(true);
@@ -309,6 +317,8 @@
 
   function optionUsage(option) {
     if(option.option_type==='spot_type')return new Set(cachedAllSpotRows.filter(spot=>spot.spot_type===option.value).map(spot=>spot.journey_id)).size;
+    if(option.option_type==='expense_category')return new Set(cachedAllExpenseRows.filter(expense=>expense.category===option.value).map(expense=>expense.journey_id)).size;
+    if(option.option_type==='payer')return new Set(cachedAllExpenseRows.filter(expense=>expense.payer===option.value).map(expense=>expense.journey_id)).size;
     return cachedJourneyRows.reduce((count,row)=>{
       const details=row.details||{};
       if(option.option_type==='region'&&details.region===option.value)return count+1;
@@ -317,8 +327,6 @@
       if(option.option_type==='currency'&&row.main_currency===option.value)return count+1;
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value))return count+1;
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value))return count+1;
-      if(option.option_type==='expense_category'&&(details.expenses||[]).some(expense=>expense.category===option.value))return count+1;
-      if(option.option_type==='payer'&&(details.expenses||[]).some(expense=>expense.payer===option.value))return count+1;
       return count;
     },0);
   }
@@ -382,6 +390,18 @@
     if(option.option_type==='spot_type'){
       const {error:spotTypeError}=await client.from('spots').update({spot_type:newValue,updated_at:new Date().toISOString()}).eq('spot_type',option.value);
       if(spotTypeError)throw spotTypeError;
+    }
+    if(option.option_type==='expense_category'){
+      const {error:categoryError}=await client.from('expenses').update({category:newValue,updated_at:new Date().toISOString()}).eq('category',option.value);
+      if(categoryError)throw categoryError;
+    }
+    if(option.option_type==='payer'){
+      const {error:payerError}=await client.from('expenses').update({payer:newValue,updated_at:new Date().toISOString()}).eq('payer',option.value);
+      if(payerError)throw payerError;
+    }
+    if(option.option_type==='currency'){
+      const {error:currencyError}=await client.from('expenses').update({currency:newValue,updated_at:new Date().toISOString()}).eq('currency',option.value);
+      if(currencyError)throw currencyError;
     }
     const {error}=await client.from('journey_options').update({value:newValue,parent_value:newParent??option.parent_value,updated_at:new Date().toISOString()}).eq('id',option.id);
     if(error)throw error;
@@ -670,6 +690,8 @@
   }
 
   function renderJourneyDays(rows){
+    cachedDayRows=rows||[];
+    window.currentJourneyDayOptions=cachedDayRows.map((row,index)=>({value:`Day ${index+1}`,date:row.day_date,id:row.id}));
     const tabs=document.querySelector('.day-tabs-scroll'),info=document.querySelector('.journey-info-section');
     if(!tabs||!info)return;
     tabs.querySelectorAll('.day-tab[data-sortable-day]').forEach(node=>node.remove());
@@ -693,7 +715,36 @@
   async function loadJourneyDays(journeyId){
     const {data,error}=await client.from('days').select('*').eq('journey_id',journeyId).order('sort_order').order('day_date');
     if(error){console.error(error);setStatus(`Day 載入失敗：${error.message}`,'error');return false}
-    renderJourneyDays(data||[]);await loadJourneySpots(journeyId);return true;
+    renderJourneyDays(data||[]);await Promise.all([loadJourneySpots(journeyId),loadJourneyExpenses(journeyId)]);return true;
+  }
+
+  function expenseUiRow(row){
+    const dayIndex=cachedDayRows.findIndex(day=>day.id===row.day_id);
+    return {id:row.id,phase:row.phase||'pretrip',day:dayIndex>=0?`Day ${dayIndex+1}`:'',date:row.expense_date||'',category:row.category||'',item:row.item||'',currency:row.currency||'TWD',amount:row.amount===null?null:Number(row.amount),rate:row.exchange_rate===null?null:Number(row.exchange_rate),payer:row.payer||'',note:row.note||''};
+  }
+
+  async function loadJourneyExpenses(journeyId){
+    const {data,error}=await client.from('expenses').select('*').eq('journey_id',journeyId).order('expense_date',{ascending:true}).order('created_at',{ascending:true});
+    if(error){console.error(error);setStatus(`費用載入失敗：${error.message}`,'error');window.setJourneyExpenses?.([]);return false}
+    cachedExpenseRows=data||[];window.setJourneyExpenses?.(cachedExpenseRows.map(expenseUiRow));return true;
+  }
+
+  async function saveJourneyExpense(values){
+    if(!currentUser||!window.currentJourneyId)return false;
+    const existing=cachedExpenseRows.find(row=>row.id===values.id);
+    const dayNumber=Number(String(values.day||'').match(/\d+/)?.[0]||0);
+    const dayId=dayNumber>0?cachedDayRows[dayNumber-1]?.id||null:null;
+    const payload={journey_id:window.currentJourneyId,day_id:dayId,owner_id:currentUser.id,user_id:currentUser.id,phase:values.phase||'pretrip',expense_date:values.date||null,category:values.category||null,item:values.item||null,currency:values.currency||'TWD',amount:values.amount,exchange_rate:values.rate,payer:values.payer||null,note:values.note||null,updated_at:new Date().toISOString()};
+    const {error}=await (existing?client.from('expenses').update(payload).eq('id',existing.id):client.from('expenses').insert(payload));
+    if(error){alert(`費用儲存失敗：${error.message}`);return false}
+    window.closeModal?.('expenseModal');await loadJourneyExpenses(window.currentJourneyId);await loadJourneys();return true;
+  }
+
+  async function deleteJourneyExpense(id){
+    if(!confirm('確定刪除這筆費用嗎？'))return false;
+    const {error}=await client.from('expenses').delete().eq('id',id);
+    if(error){alert(`費用刪除失敗：${error.message}`);return false}
+    await loadJourneyExpenses(window.currentJourneyId);await loadJourneys();return true;
   }
 
   function renderJourneySpots(rows){
@@ -814,6 +865,9 @@
     window.addCustomSpotType = addCustomSpotType;
     window.deleteJourneySpot = deleteJourneySpot;
     window.persistJourneySpotOrder = persistJourneySpotOrder;
+    window.loadJourneyExpenses = loadJourneyExpenses;
+    window.saveJourneyExpense = saveJourneyExpense;
+    window.deleteJourneyExpense = deleteJourneyExpense;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {

@@ -1,6 +1,14 @@
-Travel Archive v1.5.6｜Supabase Connection
+Travel Archive v1.6.0｜Supabase Connection
 
 這個版本已完成：
+
+v1.6.0 費用資料庫階段：
+- 費用新增、編輯、刪除改為寫入 Supabase，重新整理與換裝置後仍會保留。
+- 費用依 Journey 保存，可選擇對應 Day；刪除 Day 時費用保留並改為未指定。
+- 日期、消費階段、類別、項目、幣別、金額、單筆匯率、付款來源與備註全部永久保存。
+- 首頁 Search、費用類別與付款來源 Master Data 使用數量改讀真實費用資料。
+- 移除 Prototype 示範費用；畫面只顯示使用者實際建立的資料。
+- 本版本需要執行 supabase-v1.6.0-expenses-migration.sql 一次。
 
 v1.5.6 城市定位與手機 Modal 修正：
 - 代表地點搜尋加入 Journey 城市條件，優先搜尋「地標＋城市＋國家」。

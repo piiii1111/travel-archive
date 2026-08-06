@@ -178,10 +178,11 @@ function renderMapPins(source=journeys){
 function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
-    const details=row.details||{};
+    const details={...(row.details||{}),expenses:Array.isArray(row._expenses)?row._expenses:(row.details?.expenses||[])};
     const tags=Array.isArray(details.tags)?details.tags:[];
     const spotTypes=Array.isArray(row._spot_types)?row._spot_types:[];
-    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''}`;
+    const expenseText=(details.expenses||[]).map(expense=>[expense.category,expense.item,expense.currency,expense.payer,expense.note].filter(Boolean).join(' ')).join(' ');
+    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''} ${expenseText}`;
     return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),spotTypes,year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',defaultRate:Number(row.default_exchange_rate)||1,summary:row.summary||'',searchText,details,index};
   });
   visibleJourneys=[...journeys];renderStats();renderTimeline();renderMapPins();
@@ -497,17 +498,9 @@ let activeMasterTab = 'category';
 let budgetFilterMode = 'all';
 let activeExpenseId = null;
 
-const prototypeExpenses = [
-  {id:1,phase:'pretrip',day:'',date:'2025-07-18',category:'機票',item:'台灣虎航',currency:'TWD',amount:17980,rate:1,payer:'共同帳戶',note:'台中往返名古屋'},
-  {id:2,phase:'pretrip',day:'Day 1',date:'2025-08-02',category:'住宿',item:'東橫 INN',currency:'TWD',amount:1987,rate:1,payer:'共同帳戶',note:'第一晚'},
-  {id:3,phase:'local',day:'Day 2',date:'2025-10-23',category:'交通',item:'常滑停車費',currency:'JPY',amount:300,rate:null,payer:'現金',note:''},
-  {id:4,phase:'local',day:'Day 2',date:'2025-10-23',category:'餐飲',item:'午餐與咖啡',currency:'JPY',amount:4280,rate:null,payer:'共同帳戶',note:'信用卡'},
-  {id:5,phase:'local',day:'Day 4',date:'2025-10-25',category:'購物',item:'麵包超人紀念品',currency:'JPY',amount:6200,rate:null,payer:'同行者',note:''},
-  {id:6,phase:'pretrip',day:'Day 2',date:'2025-09-05',category:'票券',item:'名古屋港水族館',currency:'TWD',amount:824,rate:1,payer:'共同帳戶',note:'Klook'},
-  {id:7,phase:'pretrip',day:'',date:'2025-07-01',category:'通信',item:'eSIM',currency:'TWD',amount:488,rate:1,payer:'共同帳戶',note:'10GB'},
-  {id:8,phase:'pretrip',day:'',date:'2025-07-12',category:'保險',item:'旅遊不便險',currency:'TWD',amount:0,rate:1,payer:'共同帳戶',note:'信用卡附贈'},
-  {id:9,phase:'pretrip',day:'',date:'2025-09-01',category:'其他',item:'',currency:'TWD',amount:null,rate:1,payer:'',note:'預設項目，待補資料'}
-];
+const prototypeExpenses = [];
+function setJourneyExpenses(rows=[]){prototypeExpenses.splice(0,prototypeExpenses.length,...rows);activeExpenseId=null;renderBudget()}
+window.setJourneyExpenses=setJourneyExpenses;
 
 function currencySymbol(currency){return currency==='JPY'?'¥':currency==='USD'?'US$':currency==='EUR'?'€':currency==='KRW'?'₩':currency==='THB'?'฿':'NT$'}
 function numberText(value){return Math.round(Number(value)||0).toLocaleString('zh-TW')}
@@ -520,6 +513,8 @@ function expenseTwd(expense){
   return (Number(expense.amount)||0)*(rate||0);
 }
 function dayFromDate(date){
+  const actualDay=(window.currentJourneyDayOptions||[]).find(option=>option.date===date);
+  if(actualDay)return actualDay.value;
   if(!date || date<journeySettings.start || date>journeySettings.end) return '';
   const oneDay=86400000;
   const start=new Date(`${journeySettings.start}T00:00:00`);
@@ -532,7 +527,7 @@ function phaseFromDate(date){
   if(date>journeySettings.end) return 'posttrip';
   return 'local';
 }
-function syncExpenseDayOptions(){const select=document.getElementById('expenseDay');if(!select||!journeySettings.start||!journeySettings.end)return;const selected=select.value;const start=new Date(`${journeySettings.start}T00:00:00`),end=new Date(`${journeySettings.end}T00:00:00`);let options='<option value="">未指定</option>',index=1;for(let date=new Date(start);date<=end;date.setDate(date.getDate()+1),index++){const value=`Day ${index}`,label=`${value} · ${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;options+=`<option value="${value}">${label}</option>`}select.innerHTML=options;select.value=selected}
+function syncExpenseDayOptions(){const select=document.getElementById('expenseDay');if(!select||!journeySettings.start||!journeySettings.end)return;const selected=select.value;const actualDays=window.currentJourneyDayOptions||[];let options='<option value="">未指定</option>';if(actualDays.length){options+=actualDays.map(option=>`<option value="${option.value}">${option.value} · ${String(option.date||'').replaceAll('-','/')}</option>`).join('')}else{const start=new Date(`${journeySettings.start}T00:00:00`),end=new Date(`${journeySettings.end}T00:00:00`);let index=1;for(let date=new Date(start);date<=end;date.setDate(date.getDate()+1),index++){const value=`Day ${index}`,label=`${value} · ${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;options+=`<option value="${value}">${label}</option>`}}select.innerHTML=options;select.value=[...select.options].some(option=>option.value===selected)?selected:''}
 function localToday(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`}
 function populateSelect(id,items,selected){
   const el=document.getElementById(id); if(!el)return;
@@ -555,7 +550,8 @@ async function addExpenseMasterOption(type,selectId,label){
   if(selectId==='expenseCurrency')toggleCustomRate();
 }
 window.addExpenseMasterOption=addExpenseMasterOption;
-function deleteExpensePrototype(id){
+async function deleteExpensePrototype(id){
+  if(window.deleteJourneyExpense)return window.deleteJourneyExpense(id);
   const index=prototypeExpenses.findIndex(expense=>expense.id===id);
   if(index>=0 && confirm('確定刪除這筆費用嗎？')){prototypeExpenses.splice(index,1);renderBudget();}
 }
@@ -566,7 +562,7 @@ function renderBudget(){
   if(budgetFilterMode==='missing') visible=visible.filter(isExpenseMissing);
   const phaseLabels={pretrip:'出發前',local:'旅行中',posttrip:'旅行後'};
   const groups=visible.reduce((acc,e)=>{const key=e.phase==='local'?(e.day||'旅行中'):phaseLabels[e.phase];(acc[key]??=[]).push(e);return acc;},{});
-  list.innerHTML=Object.entries(groups).map(([group,items])=>`<section class="expense-group"><div class="expense-group-title"><b>${group}</b><span>${items.length} 筆</span></div>${items.map(e=>`<article class="expense-row ${isExpenseMissing(e)?'expense-incomplete':''}" role="button" tabindex="0" aria-label="編輯 ${e.item||e.category||'費用'}" onclick="openExpenseModal(${e.id})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpenseModal(${e.id})}"><div class="expense-icon">${(e.category||'?').slice(0,1)}</div><div class="expense-main"><div><b>${e.item||'尚未填寫項目'}</b><span>${e.category||'未分類'} · ${e.payer||'未指定付款來源'} · ${e.date||'未填日期'}</span></div>${e.note?`<small>${e.note}</small>`:''}${isExpenseMissing(e)?'<small class="missing-label">需要補充完整資訊</small>':''}</div><div class="expense-value"><strong>${currencySymbol(e.currency)} ${e.amount===null?'—':numberText(e.amount)}</strong>${e.currency&&e.currency!=='TWD'?`<small>約 NT$ ${numberText(expenseTwd(e))}</small>`:'<small>台幣</small>'}</div><button class="expense-delete" type="button" aria-label="刪除費用" onclick="event.stopPropagation();deleteExpensePrototype(${e.id})">×</button></article>`).join('')}</section>`).join('')||'<div class="expense-empty">這個篩選條件沒有費用。</div>';
+  list.innerHTML=Object.entries(groups).map(([group,items])=>`<section class="expense-group"><div class="expense-group-title"><b>${group}</b><span>${items.length} 筆</span></div>${items.map(e=>`<article class="expense-row ${isExpenseMissing(e)?'expense-incomplete':''}" role="button" tabindex="0" aria-label="編輯 ${e.item||e.category||'費用'}" onclick="openExpenseModal('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpenseModal('${e.id}')}"><div class="expense-icon">${(e.category||'?').slice(0,1)}</div><div class="expense-main"><div><b>${e.item||'尚未填寫項目'}</b><span>${e.category||'未分類'} · ${e.payer||'未指定付款來源'} · ${e.date||'未填日期'}</span></div>${e.note?`<small>${e.note}</small>`:''}${isExpenseMissing(e)?'<small class="missing-label">需要補充完整資訊</small>':''}</div><div class="expense-value"><strong>${currencySymbol(e.currency)} ${e.amount===null?'—':numberText(e.amount)}</strong>${e.currency&&e.currency!=='TWD'?`<small>約 NT$ ${numberText(expenseTwd(e))}</small>`:'<small>台幣</small>'}</div><button class="expense-delete" type="button" aria-label="刪除費用" onclick="event.stopPropagation();deleteExpensePrototype('${e.id}')">×</button></article>`).join('')}</section>`).join('')||'<div class="expense-empty">這個篩選條件沒有費用。</div>';
 
   const total=prototypeExpenses.reduce((sum,e)=>sum+expenseTwd(e),0);
   const missing=prototypeExpenses.filter(isExpenseMissing).length;
@@ -638,7 +634,7 @@ function updateConvertedPreview(){
   const rate=currency==='TWD'?1:(custom||journeySettings.defaultRate);
   const preview=document.getElementById('expenseConvertedPreview');if(preview)preview.textContent=`NT$ ${numberText(amount*rate)}`;
 }
-function addExpensePrototype(){
+async function addExpensePrototype(){
   const amountRaw=document.getElementById('expenseAmount')?.value;
   const payload={
     id:activeExpenseId||Date.now(),phase:document.getElementById('expensePhase').value,day:document.getElementById('expenseDay').value,
@@ -646,6 +642,10 @@ function addExpensePrototype(){
     currency:document.getElementById('expenseCurrency').value,amount:amountRaw===''?null:Number(amountRaw),rate:document.getElementById('expenseRate').value===''?null:Number(document.getElementById('expenseRate').value),
     payer:document.getElementById('expensePayer').value,note:document.getElementById('expenseNote').value.trim()
   };
+  if(window.saveJourneyExpense){
+    const button=document.getElementById('expenseSaveButton');if(button)button.disabled=true;
+    try{return await window.saveJourneyExpense(payload)}finally{if(button)button.disabled=false}
+  }
   const index=prototypeExpenses.findIndex(item=>item.id===activeExpenseId);
   if(index>=0)prototypeExpenses[index]=payload;else prototypeExpenses.push(payload);
   activeExpenseId=null;
