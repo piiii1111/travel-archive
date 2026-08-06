@@ -1,6 +1,16 @@
-Travel Archive v1.5.1｜Supabase Connection
+Travel Archive v1.5.2｜Supabase Connection
 
 這個版本已完成：
+
+v1.5.2 首頁／Master Data／費用介面修正：
+- Master Data 排序改為 update，避免偶發 journey_options RLS 新增列錯誤。
+- 節點類型預設跟隨 Master Data 第一順位，使用數改為 Journey 並可查看。
+- 首頁搜尋同步 Journey、國家、城市與載入狀態統計。
+- 費用類別、幣別、付款來源可直接在費用視窗新增。
+- 修正地圖返回後定位、手機費用區塊溢出、租車欄位提示與匯率幣別文字。
+- Review 清除會同時清除心得與旅遊標籤；Topbar 品牌可回首頁。
+
+本次不需要執行新的 SQL。
 1. Email＋密碼註冊／登入
 2. 登出
 3. 從 Supabase 讀取 journeys

@@ -4,6 +4,8 @@ let journeyMarkerLayer;
 let activeJourneyId = null;
 let reviewTags = [];
 const regionCountryMap = new Map();
+let visibleJourneys = [];
+let pendingMapFit = false;
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))}
@@ -27,10 +29,10 @@ function inferRegionForCountry(country){
   return '其他';
 }
 window.inferRegionForCountry=inferRegionForCountry;
-function renderStats(){
+function renderStats(source=journeys){
   const countries = new Set(); const cities = new Set();
-  journeys.forEach(j=>{const country=canonicalCountry(j.country);if(country)countries.add(country);(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${country}|${city}`)})});
-  document.getElementById('journeyCount').textContent=journeys.length;
+  source.forEach(j=>{const country=canonicalCountry(j.country);if(country)countries.add(country);(j.cities||[]).forEach(c=>{const city=canonicalCity(c);if(city)cities.add(`${country}|${city}`)})});
+  document.getElementById('journeyCount').textContent=source.length;
   document.getElementById('countryCount').textContent=[...countries].filter(Boolean).length;
   document.getElementById('cityCount').textContent=[...cities].filter(Boolean).length;
 }
@@ -142,8 +144,8 @@ function renderTimeline(source=journeys){
 }
 function initMap(){
   if(!window.L || !document.getElementById('map')) return;
-  map=L.map('map',{zoomControl:true,zoomSnap:.05,zoomDelta:.25}).setView([29.4,129.5],4);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap'}).addTo(map);
+  map=L.map('map',{zoomControl:true,zoomSnap:.05,zoomDelta:.25,worldCopyJump:false,maxBounds:[[-85,-180],[85,180]],maxBoundsViscosity:1}).setView([29.4,129.5],4);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',noWrap:true,bounds:[[-85,-180],[85,180]]}).addTo(map);
   journeyMarkerLayer=L.layerGroup().addTo(map);
   renderMapPins();
 }
@@ -161,30 +163,26 @@ function renderMapPins(source=journeys){
   journeyMarkerLayer.clearLayers();
   const points=[];
   source.forEach((j,index)=>{
-    const coords=journeyCoordinates(j,index);points.push(coords);
+    const rawCoords=journeyCoordinates(j,index);const coords=[Math.max(-85,Math.min(85,rawCoords[0])),Math.max(-180,Math.min(180,rawCoords[1]))];points.push(coords);
     const pinPhoto=escapeHtml(String(j.photo).replaceAll("'",'%27'));
     const icon=L.divIcon({className:'photo-pin-wrap',html:`<button class="photo-pin" type="button" aria-label="開啟 ${escapeHtml(j.title)}"><span class="photo-pin-image" style="background-image:url('${pinPhoto}')"></span></button>`,iconSize:[48,48],iconAnchor:[24,24]});
     L.marker(coords,{icon}).addTo(journeyMarkerLayer).on('click',()=>openDetail(j.id));
   });
-  if(points.length){
-    map.fitBounds(points,{padding:[45,45],maxZoom:6,animate:false});
-    requestAnimationFrame(()=>{
-      map.invalidateSize(false);
-      const height=map.getSize().y;
-      const fillZoom=Math.log2(Math.max(256,height+2)/256);
-      if(map.getZoom()<fillZoom)map.setZoom(fillZoom,{animate:false});
-    });
-  }
+  const mapVisible=!document.getElementById('homeView')?.classList.contains('hidden')&&!document.getElementById('mapCard')?.classList.contains('hidden');
+  if(!mapVisible){pendingMapFit=true;return}
+  pendingMapFit=false;
+  requestAnimationFrame(()=>{map.stop();map.invalidateSize(false);if(points.length)map.fitBounds(points,{padding:[45,45],maxZoom:6,animate:false});else map.setView([25,105],2.2,{animate:false});});
 }
 function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
     const start=row.start_date||'';const end=row.end_date||'';
     const details=row.details||{};
     const tags=Array.isArray(details.tags)?details.tags:[];
-    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''}`;
+    const spotTypes=Array.isArray(row._spot_types)?row._spot_types:[];
+    const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''}`;
     return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',defaultRate:Number(row.default_exchange_rate)||1,summary:row.summary||'',searchText,details,index};
   });
-  renderStats();renderTimeline();renderMapPins();
+  visibleJourneys=[...journeys];renderStats();renderTimeline();renderMapPins();
   if(document.getElementById('detailView')?.classList.contains('active')&&activeJourneyId){
     const active=journeys.find(item=>String(item.id)===String(activeJourneyId));
     if(active)renderJourneyDetail(active);
@@ -195,7 +193,7 @@ function switchHomeView(mode,button){
   document.querySelectorAll('.archive-view-tab').forEach(b=>b.classList.toggle('active',b===button));
   document.getElementById('mapCard').classList.toggle('hidden',mode!=='map');
   document.getElementById('archiveTimeline').classList.toggle('hidden',mode!=='timeline');
-  if(mode==='map'&&map)setTimeout(()=>map.invalidateSize(),50);
+  if(mode==='map'&&map)setTimeout(()=>renderMapPins(visibleJourneys),80);
 }
 function openDetail(journeyId){
   const journey=journeys.find(item=>String(item.id)===String(journeyId));
@@ -259,7 +257,9 @@ function deleteActiveJourney(){
   if(!activeJourneyId)return;
   window.travelArchiveDeleteJourney?.(activeJourneyId,{returnHome:true});
 }
-function closeDetail(){document.getElementById('detailView').classList.remove('active');document.getElementById('homeView').classList.remove('hidden');document.getElementById('dbStatus')?.classList.remove('hidden');window.scrollTo(0,0);if(map)setTimeout(()=>map.invalidateSize(),50)}
+function closeDetail(){document.getElementById('detailView').classList.remove('active');document.getElementById('homeView').classList.remove('hidden');document.getElementById('dbStatus')?.classList.remove('hidden');window.scrollTo(0,0);if(map)setTimeout(()=>renderMapPins(visibleJourneys),80)}
+function goHomeFromBrand(){document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();else window.scrollTo({top:0,behavior:'smooth'})}
+window.goHomeFromBrand=goHomeFromBrand;
 function showDay(day,button){
   document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));
   button.classList.add('active');
@@ -285,6 +285,7 @@ function filterJourneys(keepPage=false){
   const q=normalizeText(document.getElementById('searchInput')?.value).toLowerCase();
   const region=document.getElementById('regionFilter')?.value||'all';
   const filtered=journeys.filter(j=>(!q||String(j.searchText||'').toLowerCase().includes(q))&&(region==='all'||j.region===region));
+  visibleJourneys=filtered;
   const totalPages=Math.max(1,Math.ceil(filtered.length/journeyPageSize));
   journeyPage=Math.min(journeyPage,totalPages);
   const start=(journeyPage-1)*journeyPageSize;
@@ -302,12 +303,19 @@ function filterJourneys(keepPage=false){
   }
   renderTimeline(filtered);
   renderMapPins(filtered);
+  renderStats(filtered);
+  const status=document.getElementById('dbStatus');if(status){status.textContent=`已載入 ${filtered.length} 趟旅程`;status.className='db-status success'}
 }
 function setJourneyPage(page){journeyPage=Math.max(1,Number(page)||1);filterJourneys(true);document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
 window.setJourneyPage=setJourneyPage;
 function filterHomeByValue(value,event){event?.preventDefault();event?.stopPropagation();document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();const input=document.getElementById('searchInput');if(input)input.value=value||'';filterJourneys();document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
 window.filterHomeByValue=filterHomeByValue;
-function toggleRentalFields(){document.getElementById('rentalFields')?.classList.toggle('show')}
+function toggleRentalFields(){
+  const fields=document.getElementById('rentalFields');if(!fields)return;
+  const selected=[...document.querySelectorAll('#journeyModal [data-journey-transport]:checked')].some(input=>input.value==='租車');
+  fields.classList.toggle('show',selected);
+  if(selected)setTimeout(()=>fields.scrollIntoView({behavior:'smooth',block:'center'}),80);
+}
 function addCityInput(value=''){
   const grid=document.getElementById('cityInputGrid');
   if(!grid)return;
@@ -514,6 +522,17 @@ function syncMasterSelects(){
   populateSelect('expensePayer',masterData.payer,document.getElementById('expensePayer')?.value||masterData.payer[0]);
   populateSelect('journeyMainCurrency',masterData.currency,journeySettings.mainCurrency);
 }
+async function addExpenseMasterOption(type,selectId,label){
+  const value=normalizeText(prompt(`請輸入新的${label}`)||'');if(!value)return;
+  const key=type==='expense_category'?'category':type==='currency'?'currency':'payer';
+  const normalized=type==='currency'?value.toUpperCase():value;
+  if(!masterData[key].includes(normalized))masterData[key].push(normalized);
+  const saved=await window.saveJourneyOption?.(type,normalized,'');
+  if(saved===false)return alert(`${label}尚未保存，請稍後再試。`);
+  syncMasterSelects();const select=document.getElementById(selectId);if(select)select.value=normalized;
+  if(selectId==='expenseCurrency')toggleCustomRate();
+}
+window.addExpenseMasterOption=addExpenseMasterOption;
 function deleteExpensePrototype(id){
   const index=prototypeExpenses.findIndex(expense=>expense.id===id);
   if(index>=0 && confirm('確定刪除這筆費用嗎？')){prototypeExpenses.splice(index,1);renderBudget();}
@@ -534,6 +553,7 @@ function renderBudget(){
   document.getElementById('budgetMissingCount').textContent=`${missing} 筆`;
   document.getElementById('budgetCurrencyKpi').textContent=journeySettings.mainCurrency;
   document.getElementById('budgetMainCurrencyText').textContent=`${journeySettings.mainCurrency} ${journeySettings.mainCurrency==='JPY'?'日圓':''}`;
+  const rateLabel=document.getElementById('budgetRateCurrencyLabel');if(rateLabel)rateLabel.textContent=`1 ${journeySettings.mainCurrency} =`;
   document.getElementById('heroCurrencyBadge').textContent=journeySettings.mainCurrency;
   const notice=document.getElementById('missingInfoCard');
   document.getElementById('missingInfoText').textContent=missing?`還有 ${missing} 筆消費尚未完成`:'所有消費資料都已完成';

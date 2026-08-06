@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=1.5.2">
   <style>
     /* v1.1.2 Journey Hero actions */
     .hero-actions{position:absolute;right:18px;top:16px;z-index:3;display:flex;gap:8px;align-items:center}
@@ -72,7 +72,7 @@
 <div class="db-status" id="dbStatus">正在連接 Supabase…</div>
 <div class="app">
   <header class="topbar">
-    <div class="brand">
+    <div class="brand" role="button" tabindex="0" aria-label="回到首頁" onclick="goHomeFromBrand()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goHomeFromBrand()}">
       <div class="brand-mark">旅</div>
       <div><small>TRAVEL ARCHIVE</small><strong>我的旅行足跡</strong></div>
     </div>
@@ -334,7 +334,7 @@
 
         <div class="budget-rate-card">
           <div><span>主要幣別</span><strong id="budgetMainCurrencyText">JPY 日圓</strong></div>
-          <label><span>旅程換算匯率</span><div class="rate-input"><b>1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="renderBudget()"><b>TWD</b></div></label>
+          <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="renderBudget()"><b>TWD</b></div></label>
           <small>每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
         </div>
 
@@ -365,11 +365,6 @@
               <div class="eyebrow">PAYMENT SOURCE</div><h3>付款來源統計</h3>
               <div id="payerSummary" class="category-summary"></div>
             </div>
-            <div class="master-data-panel">
-              <div class="master-tabs"><button class="active" type="button" data-master-tab="category" onclick="switchMasterTab('category',this)">類別</button><button type="button" data-master-tab="currency" onclick="switchMasterTab('currency',this)">幣別</button><button type="button" data-master-tab="payer" onclick="switchMasterTab('payer',this)">付款來源</button></div>
-              <div id="masterDataList" class="master-data-list"></div>
-              <div class="master-add"><input id="masterDataInput" placeholder="新增類別"><button type="button" onclick="addMasterItem()">＋ 新增</button></div>
-            </div>
             <div class="budget-note">
               <strong>設計重點</strong>
               <p>台幣與當地幣別不必二選一。系統保存你當下真正支付的貨幣，再提供統一的台幣總覽。</p>
@@ -384,8 +379,8 @@
         <h3>旅遊總心得 · 旅遊標籤</h3>
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
         <div class="review-actions">
-          <button type="button" onclick="openReviewModal(event)">編輯總心得</button>
-          <button type="button" onclick="deleteReview(event)">清除心得</button>
+          <button type="button" onclick="openReviewModal(event)">編輯內容</button>
+          <button type="button" onclick="deleteReview(event)">清除內容</button>
         </div>
       </article>
     </section>
@@ -598,7 +593,7 @@
   <div class="modal">
     <div class="modal-head"><h3>新增／編輯行程節點</h3><button onclick="closeModal('spotModal')">×</button></div>
     <input type="hidden" id="spotEditId"><input type="hidden" id="spotDayId">
-    <div class="field"><label for="spotType">類型</label><div class="spot-type-input-row"><select id="spotType"><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select><button type="button" class="secondary" onclick="addCustomSpotType()">＋ 新增類別</button></div></div>
+    <div class="field"><label for="spotType">類型</label><div class="inline-add"><select id="spotType"><option>景點</option><option>交通</option><option>住宿</option><option>餐廳</option><option>購物</option></select><button type="button" class="secondary" onclick="addCustomSpotType()">＋ 新增類別</button></div></div>
     <div class="field"><label for="spotName">名稱</label><input id="spotName" placeholder="例如：宜蘭傳藝中心"></div>
     <div class="field"><label for="spotTime">時間</label><input id="spotTime" type="time"></div>
     <div class="field"><label for="spotNote">備註</label><textarea id="spotNote" rows="3"></textarea></div>
@@ -660,16 +655,16 @@
       <div class="field"><label>所屬日程</label><select id="expenseDay"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select></div>
     </div>
     <div class="two-col">
-      <div class="field"><label>類別</label><select id="expenseCategory"><option>機票</option><option>住宿</option><option>交通</option><option>餐飲</option><option>票券</option><option>購物</option><option>通信</option><option>保險</option><option>其他</option></select></div>
+      <div class="field"><label>類別</label><div class="inline-add"><select id="expenseCategory"><option>機票</option><option>住宿</option><option>交通</option><option>餐飲</option><option>票券</option><option>購物</option><option>通信</option><option>保險</option><option>其他</option></select><button type="button" class="secondary" onclick="addExpenseMasterOption('expense_category','expenseCategory','費用類別')">＋ 新增</button></div></div>
       <div class="field"><label>項目</label><input id="expenseItem" placeholder="例如：名古屋港水族館門票"></div>
     </div>
     <div class="three-col expense-money-grid">
-      <div class="field"><label>幣別</label><select id="expenseCurrency" onchange="toggleCustomRate()"></select><small class="field-help">首選旅程主要幣別，可改回 TWD</small></div>
+      <div class="field"><label>幣別</label><div class="inline-add"><select id="expenseCurrency" onchange="toggleCustomRate()"></select><button type="button" class="secondary" onclick="addExpenseMasterOption('currency','expenseCurrency','幣別')">＋ 新增</button></div><small class="field-help">首選旅程主要幣別，可改回 TWD</small></div>
       <div class="field"><label>原始金額</label><input id="expenseAmount" type="number" min="0" step="1" placeholder="0"></div>
       <div class="field"><label>單筆匯率（選填）</label><input id="expenseRate" type="number" min="0" step="0.0001" placeholder="使用旅程預設匯率"><small class="field-help">填寫後永久覆蓋本筆費用匯率</small></div>
     </div>
     <div class="two-col">
-      <div class="field"><label>付款來源</label><select id="expensePayer"></select></div>
+      <div class="field"><label>付款來源</label><div class="inline-add"><select id="expensePayer"></select><button type="button" class="secondary" onclick="addExpenseMasterOption('payer','expensePayer','付款來源')">＋ 新增</button></div></div>
       <div class="field"><label>日期</label><input id="expenseDate" type="date" onchange="autoAssignExpenseMeta()"><small class="field-help">依日期自動配對消費階段與 Day</small></div>
     </div>
     <div class="field"><label>備註</label><textarea id="expenseNote" rows="3" placeholder="刷卡、現金、費用內容或結算備註"></textarea></div>
@@ -680,8 +675,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/supabase-client.js"></script>
+  <script src="js/app.js?v=1.5.2"></script>
+  <script src="js/supabase-client.js?v=1.5.2"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.
@@ -693,7 +688,8 @@
     async function deleteReview(event){
       event?.preventDefault();
       event?.stopPropagation();
-      if(!window.confirm('確定清除這趟旅行的心得文字嗎？')) return;
+      if(!window.confirm('確定清除這趟旅行的心得與旅遊標籤嗎？')) return;
+      reviewTags=[];const input=document.getElementById('reviewTagInput');if(input)input.value='';renderReviewTags();
       await window.saveActiveJourneyReview?.('');
     }
   </script>
