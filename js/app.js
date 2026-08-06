@@ -360,6 +360,7 @@ function renderReviewTags(){
   if(!list)return;
   list.innerHTML=reviewTags.map((tag,index)=>`<span class="review-tag-item">${escapeHtml(tag)}<button type="button" aria-label="刪除 ${escapeHtml(tag)}" onclick="removeReviewTag(${index})">×</button></span>`).join('');
 }
+window.renderReviewTags=renderReviewTags;
 function addReviewTag(){
   const input=document.getElementById('reviewTagInput');
   const tag=normalizeText(input?.value);
@@ -374,7 +375,6 @@ function handleReviewTagKey(event){if(event.key==='Enter'){event.preventDefault(
 async function saveActiveJourneyReview(value){
   if(!activeJourneyId)return false;
   const saved=await window.saveJourneySummary?.(activeJourneyId,value,reviewTags);
-  if(saved)closeModal('reviewModal');
   return Boolean(saved);
 }
 window.saveActiveJourneyReview=saveActiveJourneyReview;

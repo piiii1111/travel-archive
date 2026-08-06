@@ -109,7 +109,7 @@
   }
 
   async function searchPlace(place, country) {
-    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','馬來西亞':'my','越南':'vn','菲律賓':'ph','印尼':'id','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','德國':'de','義大利':'it','意大利':'it','西班牙':'es','美國':'us','加拿大':'ca','澳洲':'au','澳大利亞':'au','紐西蘭':'nz','新西蘭':'nz'};
+    const countryCodes = {'台灣':'tw','臺灣':'tw','中國':'cn','中国':'cn','中華人民共和國':'cn','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','馬來西亞':'my','越南':'vn','菲律賓':'ph','印尼':'id','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','德國':'de','義大利':'it','意大利':'it','西班牙':'es','美國':'us','加拿大':'ca','澳洲':'au','澳大利亞':'au','紐西蘭':'nz','新西蘭':'nz'};
     const countryNames = {'GB':'United Kingdom','UK':'United Kingdom','英國（UK）':'United Kingdom'};
     const aliases = [
       [/廣安[裏里]海灘|廣安[裏里]沙灘/u, 'Gwangalli Beach, Busan'],
@@ -118,7 +118,11 @@
       [/西敏宮|倫敦國會大廈/u, 'Palace of Westminster, London'],
       [/太宰府天滿宮|だざいふてんまんぐう|Dazaifu\s+Tenmang[uū]/iu, 'Dazaifu Tenmangu'],
       [/大都會藝術博物館|大都会艺术博物馆|The\s+Met(?:ropolitan)?\s+Museum(?:\s+of\s+Art)?/iu, 'Metropolitan Museum of Art, New York'],
-      [/艾菲爾鐵塔|埃菲尔铁塔|the\s+Eiffel\s+Tower|Eiffel\s+Tower|Tour\s+Eiffel/iu, 'Eiffel Tower, Paris']
+      [/艾菲爾鐵塔|埃菲尔铁塔|the\s+Eiffel\s+Tower|Eiffel\s+Tower|Tour\s+Eiffel/iu, 'Eiffel Tower, Paris'],
+      [/北京紫禁城|北京故宮博物院|北京故宫博物院/u, 'Palace Museum, Beijing'],
+      [/上海外灘|上海外滩/u, 'The Bund, Shanghai'],
+      [/胡志明陵寢|胡志明陵寝|胡志明紀念堂/u, 'Ho Chi Minh Mausoleum, Hanoi'],
+      [/登別地獄谷溫泉|登别地狱谷温泉/u, 'Noboribetsu Jigokudani']
     ];
     const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, place.trim());
     const code = countryCodes[country]||Object.entries(countryCodes).find(([name])=>String(country||'').includes(name))?.[1];
@@ -463,6 +467,9 @@
     existingCoverPath = '';
     showCoverPreview('');
     if ($('journeyPhotoStatus')) $('journeyPhotoStatus').textContent = '可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。';
+    if ($('reviewEditor')) $('reviewEditor').value = '';
+    if ($('reviewTagInput')) $('reviewTagInput').value = '';
+    reviewTags=[];window.renderReviewTags?.();
     $('rentalFields')?.classList.remove('show');
     window.toggleFlightFields?.();
     window.syncJourneyDateFields?.();
@@ -483,6 +490,8 @@
     setFieldValue('journeyRegion', editRegion);
     window.syncJourneyCountryOptions?.(row.country || '');
     setFieldValue('journeyPinPlace', details.pin_place);
+    setFieldValue('reviewEditor', row.summary || '');
+    reviewTags=Array.isArray(details.tags)?[...details.tags]:[];window.renderReviewTags?.();
     const cityGrid = $('cityInputGrid');
     if (cityGrid) {
       cityGrid.innerHTML = '';
@@ -546,6 +555,8 @@
       if (input?.value && !window.validateJourneyBoundedDate?.(input,label)) return;
     }
 
+    const pendingTag=fieldValue('reviewTagInput').trim();
+    if(pendingTag&&!reviewTags.some(tag=>tag.toLowerCase()===pendingTag.toLowerCase()))reviewTags.push(pendingTag);
     const country = fieldValue('journeyCountry');
     const cities = [...document.querySelectorAll('#cityInputGrid input')].map(input => input.value.trim()).filter(Boolean);
     let location;
@@ -583,7 +594,8 @@
         return_place: fieldValue('journeyRentalReturn').trim(), pickup_at: fieldValue('journeyRentalPickupAt'),
         return_at: fieldValue('journeyRentalReturnAt'),
         options: [...document.querySelectorAll('[data-rental-option]:checked')].map(input => input.value)
-      }
+      },
+      tags:[...reviewTags]
     };
     const journeyId = editingJourneyId || crypto.randomUUID();
     let coverPath = existingCoverPath || null;
@@ -606,6 +618,7 @@
       end_date: endDate,
       main_currency: $('journeyMainCurrency')?.value || 'TWD',
       default_exchange_rate: Number($('journeyDefaultRate')?.value || 1),
+      summary: fieldValue('reviewEditor').trim() || null,
       details,
       cover_path: coverPath,
       updated_at: new Date().toISOString()
@@ -621,6 +634,7 @@
       setStatus(`儲存失敗：${error.message}`, 'error');
       return alert(`儲存失敗：${error.message}`);
     }
+    for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';
     selectedCoverBlob = null;

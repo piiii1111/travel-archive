@@ -1,6 +1,14 @@
-Travel Archive v1.5.3｜Supabase Connection
+Travel Archive v1.5.4｜Supabase Connection
 
 這個版本已完成：
+
+v1.5.4 Journey 編輯整合與定位別名：
+- 旅遊總心得與旅遊標籤合併進新增／編輯旅程視窗，一次儲存全部資訊。
+- 新增旅程時心得保持空白；編輯旅程時載入既有心得與標籤。
+- Journey Detail 的「編輯內容」直接開啟旅程視窗並定位到心得區。
+- 補強北京故宮／紫禁城、上海外灘、胡志明陵寢、登別地獄谷溫泉的定位名稱。
+
+本次不需要執行新的 SQL。
 
 v1.5.3 搜尋／地圖／代表地點修正：
 - 首頁國家與城市統計改為純數字，不再開啟 Master Data。
