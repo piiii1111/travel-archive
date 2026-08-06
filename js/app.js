@@ -6,6 +6,8 @@ let reviewTags = [];
 const regionCountryMap = new Map();
 let visibleJourneys = [];
 let pendingMapFit = false;
+let activeMasterFilter = null;
+const masterFilterLabels={region:'地區',country:'國家',city:'城市',currency:'貨幣',expense_category:'費用類別',payer:'付款來源',transport:'交通方式',spot_type:'節點類型',tag:'旅遊標籤'};
 
 function normalizeText(value){return String(value || '').trim().replace(/\s+/g,' ')}
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))}
@@ -171,7 +173,7 @@ function renderMapPins(source=journeys){
   const mapVisible=!document.getElementById('homeView')?.classList.contains('hidden')&&!document.getElementById('mapCard')?.classList.contains('hidden');
   if(!mapVisible){pendingMapFit=true;return}
   pendingMapFit=false;
-  requestAnimationFrame(()=>{map.stop();map.invalidateSize(false);if(points.length)map.fitBounds(points,{padding:[45,45],maxZoom:6,animate:false});else map.setView([25,105],2.2,{animate:false});});
+  requestAnimationFrame(()=>{map.stop();map.invalidateSize(false);const fillZoom=Math.log2(Math.max(256,map.getSize().y+2)/256);map.setMinZoom(fillZoom);if(points.length){map.fitBounds(points,{padding:[45,45],maxZoom:6,animate:false});if(map.getZoom()<fillZoom)map.setZoom(fillZoom,{animate:false})}else map.setView([25,105],Math.max(2.2,fillZoom),{animate:false});});
 }
 function setJourneyData(rows){
   journeys=(rows||[]).map((row,index)=>{
@@ -180,7 +182,7 @@ function setJourneyData(rows){
     const tags=Array.isArray(details.tags)?details.tags:[];
     const spotTypes=Array.isArray(row._spot_types)?row._spot_types:[];
     const searchText=`${row.country||''} ${row.country==='台灣'?'臺灣':''} ${row.country==='臺灣'?'台灣':''} ${row.title||''} ${row.summary||''} ${row.main_currency||''} ${details.region||''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities||[]).join(' ')} ${(details.transports||[]).join(' ')} ${details.pin_place||''}`;
-    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',defaultRate:Number(row.default_exchange_rate)||1,summary:row.summary||'',searchText,details,index};
+    return {id:row.id,title:row.title||'未命名旅程',country:row.country||'',cities:Array.isArray(details.cities)?details.cities:[],region:details.region||inferRegionForCountry(row.country),spotTypes,year:Number(start.slice(0,4))||'未定',start,end,date:start&&end?`${start.replaceAll('-','.')}－${end.replaceAll('-','.')}`:'日期未設定',photo:row.cover_url||'https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=700&q=82',latitude:details.latitude,longitude:details.longitude,currency:row.main_currency||'TWD',defaultRate:Number(row.default_exchange_rate)||1,summary:row.summary||'',searchText,details,index};
   });
   visibleJourneys=[...journeys];renderStats();renderTimeline();renderMapPins();
   if(document.getElementById('detailView')?.classList.contains('active')&&activeJourneyId){
@@ -282,9 +284,27 @@ let journeyPage=1;
 const journeyPageSize=5;
 function filterJourneys(keepPage=false){
   if(!keepPage)journeyPage=1;
-  const q=normalizeText(document.getElementById('searchInput')?.value).toLowerCase();
+  const rawQuery=normalizeText(document.getElementById('searchInput')?.value);
+  const q=rawQuery.toLowerCase();
   const region=document.getElementById('regionFilter')?.value||'all';
-  const filtered=journeys.filter(j=>(!q||String(j.searchText||'').toLowerCase().includes(q))&&(region==='all'||j.region===region));
+  const parsedFilter=Object.entries(masterFilterLabels).map(([type,label])=>({type,label,prefix:`${label} `})).find(item=>rawQuery.startsWith(item.prefix)&&rawQuery.slice(item.prefix.length).trim());
+  if(activeMasterFilter&&rawQuery!==`${masterFilterLabels[activeMasterFilter.type]} ${activeMasterFilter.value}`)activeMasterFilter=null;
+  const structuredFilter=parsedFilter?{type:parsedFilter.type,value:rawQuery.slice(parsedFilter.prefix.length).trim()}:activeMasterFilter;
+  const matchesMaster=(journey,filter)=>{
+    if(!filter)return true;const value=filter.value,details=journey.details||{};
+    if(filter.type==='region')return journey.region===value;
+    if(filter.type==='country')return canonicalCountry(journey.country)===canonicalCountry(value);
+    if(filter.type==='city')return (journey.cities||[]).some(city=>canonicalCity(city)===canonicalCity(value));
+    if(filter.type==='currency')return journey.currency===value;
+    if(filter.type==='transport')return (details.transports||[]).includes(value);
+    if(filter.type==='tag')return (details.tags||[]).includes(value);
+    if(filter.type==='spot_type')return (journey.spotTypes||[]).includes(value);
+    const expenses=Array.isArray(details.expenses)?details.expenses:Array.isArray(journey.expenses)?journey.expenses:[];
+    if(filter.type==='expense_category')return expenses.some(expense=>expense.category===value);
+    if(filter.type==='payer')return expenses.some(expense=>expense.payer===value);
+    return false;
+  };
+  const filtered=journeys.filter(j=>(structuredFilter?matchesMaster(j,structuredFilter):(!q||String(j.searchText||'').toLowerCase().includes(q)))&&(region==='all'||j.region===region));
   visibleJourneys=filtered;
   const totalPages=Math.max(1,Math.ceil(filtered.length/journeyPageSize));
   journeyPage=Math.min(journeyPage,totalPages);
@@ -310,6 +330,8 @@ function setJourneyPage(page){journeyPage=Math.max(1,Number(page)||1);filterJour
 window.setJourneyPage=setJourneyPage;
 function filterHomeByValue(value,event){event?.preventDefault();event?.stopPropagation();document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();const input=document.getElementById('searchInput');if(input)input.value=value||'';filterJourneys();document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
 window.filterHomeByValue=filterHomeByValue;
+function filterHomeByMaster(type,value,event){event?.preventDefault();event?.stopPropagation();activeMasterFilter={type,value};document.querySelectorAll('.modal-backdrop.show').forEach(modal=>modal.classList.remove('show'));document.body.classList.remove('modal-open');if(document.getElementById('detailView')?.classList.contains('active'))closeDetail();const input=document.getElementById('searchInput');if(input)input.value=`${masterFilterLabels[type]||type} ${value}`;filterJourneys();document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
+window.filterHomeByMaster=filterHomeByMaster;
 function toggleRentalFields(){
   const fields=document.getElementById('rentalFields');if(!fields)return;
   const selected=[...document.querySelectorAll('#journeyModal [data-journey-transport]:checked')].some(input=>input.value==='租車');

@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.5.2">
+  <link rel="stylesheet" href="css/style.css?v=1.5.3">
   <style>
     /* v1.1.2 Journey Hero actions */
     .hero-actions{position:absolute;right:18px;top:16px;z-index:3;display:flex;gap:8px;align-items:center}
@@ -92,8 +92,8 @@
           <p>地圖 Pin 標記地點，Journey 保存細節。</p>
           <div class="stats">
             <div class="stat"><strong id="journeyCount">4</strong><span>趟旅程</span></div>
-            <button class="stat" type="button" onclick="openMasterDataModal('country')"><strong id="countryCount">2</strong><span>個國家</span></button>
-            <button class="stat" type="button" onclick="openMasterDataModal('city')"><strong id="cityCount">4</strong><span>座城市</span></button>
+            <div class="stat"><strong id="countryCount">2</strong><span>個國家</span></div>
+            <div class="stat"><strong id="cityCount">4</strong><span>座城市</span></div>
           </div>
         </div>
 
@@ -675,8 +675,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.5.2"></script>
-  <script src="js/supabase-client.js?v=1.5.2"></script>
+  <script src="js/app.js?v=1.5.3"></script>
+  <script src="js/supabase-client.js?v=1.5.3"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

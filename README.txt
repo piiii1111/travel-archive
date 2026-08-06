@@ -1,6 +1,15 @@
-Travel Archive v1.5.2｜Supabase Connection
+Travel Archive v1.5.3｜Supabase Connection
 
 這個版本已完成：
+
+v1.5.3 搜尋／地圖／代表地點修正：
+- 首頁國家與城市統計改為純數字，不再開啟 Master Data。
+- Master Data「查看」使用「類別名稱＋項目」精準篩選，避免旅程名稱文字誤判。
+- 手機地圖固定填滿卡片，並依容器高度限制最低縮放層級。
+- 代表地點改用地標原名搭配國家代碼搜尋，避免中英文混合國名造成查無結果。
+- 新增太宰府天滿宮、大都會藝術博物館、艾菲爾鐵塔等常用多語名稱。
+
+本次不需要執行新的 SQL。
 
 v1.5.2 首頁／Master Data／費用介面修正：
 - Master Data 排序改為 update，避免偶發 journey_options RLS 新增列錯誤。

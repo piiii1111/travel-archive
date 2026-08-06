@@ -63,13 +63,12 @@
     }
     .stat strong{display:block;font-size:20px;font-family:Georgia,serif}
     .stat span{font-size:10px;color:var(--muted)}
-    button.stat{color:var(--ink);cursor:pointer}
     .map-card{
       position:relative;padding:8px;background:var(--paper);
       border:1px solid var(--line);border-radius:var(--r-xl);
       box-shadow:var(--shadow);overflow:hidden;
     }
-    #map{height:390px;border-radius:20px;background:#d8d8d4}
+    #map{width:100%;height:390px;border-radius:20px;background:#d8d8d4}
     .map-caption{
       position:absolute;left:20px;top:20px;z-index:500;padding:9px 11px;
       background:rgba(248,247,243,.92);border:1px solid rgba(80,82,80,.12);
@@ -564,7 +563,7 @@
 .modal-backdrop{align-items:flex-start!important;padding:92px 18px 24px!important}.modal{max-height:calc(100vh - 116px)!important;border-radius:24px!important}.modal-head{position:sticky;top:-19px;z-index:5;background:var(--paper);padding:12px 0 10px;margin-top:-10px;border-bottom:1px solid var(--line)}
 .spot-card{touch-action:none}.drag-handle{cursor:grab}.spot-card.dragging{opacity:.55;box-shadow:0 16px 32px rgba(0,0,0,.15)}
 @media(min-width:760px){.map-area{grid-column:1;grid-row:1 / span 2}.map-card{grid-column:auto;grid-row:auto}.archive-timeline-card{height:600px}.detail-toolbar{padding-top:18px}}
-@media(max-width:759px){main{padding-top:14px}.home-grid{display:flex;flex-direction:column}.map-area{order:1}.intro{order:2}.section{order:3}.archive-view-tabs{margin-bottom:12px}.map-card #map{height:430px}.archive-timeline-card{height:auto;min-height:430px;padding:18px 12px}.timeline-years{display:none}.archive-timeline-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.archive-trip-card img{height:150px}.archive-trip-body b{font-size:17px}.detail-hero{margin-top:0}.detail-toolbar{padding:12px 2px 0}.modal-backdrop{height:100dvh;padding:82px 10px calc(12px + env(safe-area-inset-bottom))!important}.modal{max-height:calc(100dvh - 94px)!important;scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom))}.journey-photo-upload{grid-template-columns:1fr}.journey-photo-preview{height:170px}}
+@media(max-width:759px){main{padding-top:14px}.home-grid{display:flex;flex-direction:column}.map-area{order:1}.intro{order:2}.section{order:3}.archive-view-tabs{margin-bottom:12px}.map-card{height:448px}.map-card #map{height:100%;min-height:0}.archive-timeline-card{height:auto;min-height:430px;padding:18px 12px}.timeline-years{display:none}.archive-timeline-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.archive-trip-card img{height:150px}.archive-trip-body b{font-size:17px}.detail-hero{margin-top:0}.detail-toolbar{padding:12px 2px 0}.modal-backdrop{height:100dvh;padding:82px 10px calc(12px + env(safe-area-inset-bottom))!important}.modal{max-height:calc(100dvh - 94px)!important;scroll-padding-bottom:calc(90px + env(safe-area-inset-bottom))}.journey-photo-upload{grid-template-columns:1fr}.journey-photo-preview{height:170px}}
 
 @media(max-width:759px){
   #journeyModal #flightFields,#journeyModal .flight-sections,#journeyModal .flight-card,#journeyModal .two-col{width:100%;min-width:0;max-width:100%}

@@ -109,18 +109,21 @@
   }
 
   async function searchPlace(place, country) {
-    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','美國':'us'};
+    const countryCodes = {'台灣':'tw','臺灣':'tw','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','馬來西亞':'my','越南':'vn','菲律賓':'ph','印尼':'id','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','德國':'de','義大利':'it','意大利':'it','西班牙':'es','美國':'us','加拿大':'ca','澳洲':'au','澳大利亞':'au','紐西蘭':'nz','新西蘭':'nz'};
     const countryNames = {'GB':'United Kingdom','UK':'United Kingdom','英國（UK）':'United Kingdom'};
     const aliases = [
       [/廣安[裏里]海灘|廣安[裏里]沙灘/u, 'Gwangalli Beach, Busan'],
       [/釜山海雲台|海雲台海灘/u, 'Haeundae Beach, Busan'],
       [/倫敦大[本笨]鐘|大[本笨]鐘|Big Ben/iu, 'Big Ben, London'],
-      [/西敏宮|倫敦國會大廈/u, 'Palace of Westminster, London']
+      [/西敏宮|倫敦國會大廈/u, 'Palace of Westminster, London'],
+      [/太宰府天滿宮|だざいふてんまんぐう|Dazaifu\s+Tenmang[uū]/iu, 'Dazaifu Tenmangu'],
+      [/大都會藝術博物館|大都会艺术博物馆|The\s+Met(?:ropolitan)?\s+Museum(?:\s+of\s+Art)?/iu, 'Metropolitan Museum of Art, New York'],
+      [/艾菲爾鐵塔|埃菲尔铁塔|the\s+Eiffel\s+Tower|Eiffel\s+Tower|Tour\s+Eiffel/iu, 'Eiffel Tower, Paris']
     ];
     const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, place.trim());
-    const query = [normalized, countryNames[country] || country].filter(Boolean).join(', ');
-    const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'1', 'accept-language':'zh-TW' });
-    const code = countryCodes[country];
+    const code = countryCodes[country]||Object.entries(countryCodes).find(([name])=>String(country||'').includes(name))?.[1];
+    const query = code?normalized:[normalized, countryNames[country] || country].filter(Boolean).join(', ');
+    const params = new URLSearchParams({ format:'jsonv2', q:query, limit:'5', addressdetails:'1', namedetails:'1', dedupe:'1', 'accept-language':'zh-TW,zh,en,ja,ko' });
     if (code) params.set('countrycodes', code);
     const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
     if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
@@ -288,6 +291,8 @@
       if(option.option_type==='currency'&&row.main_currency===option.value)return count+1;
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value))return count+1;
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value))return count+1;
+      if(option.option_type==='expense_category'&&(details.expenses||[]).some(expense=>expense.category===option.value))return count+1;
+      if(option.option_type==='payer'&&(details.expenses||[]).some(expense=>expense.payer===option.value))return count+1;
       return count;
     },0);
   }
@@ -308,7 +313,7 @@
       const parentItems=row.option_type==='country'?regions:row.option_type==='city'?countries:[];
       const parentSelect=parentItems.length?`<select id="managed-parent-${row.id}">${parentItems.map(item=>`<option ${item.value===row.parent_value?'selected':''}>${escapeHtml(item.value)}</option>`).join('')}</select>`:'';
       const usageUnit='個 Journey';
-      const usageHtml=usage?`<button type="button" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByValue(this.dataset.filterValue,event)">${usage} ${usageUnit} 使用・查看</button>`:`<span>0 ${usageUnit} 使用</span>`;
+      const usageHtml=usage?`<button type="button" data-filter-type="${escapeHtml(row.option_type)}" data-filter-value="${escapeHtml(row.value)}" onclick="filterHomeByMaster(this.dataset.filterType,this.dataset.filterValue,event)">${usage} ${usageUnit} 使用・查看</button>`:`<span>0 ${usageUnit} 使用</span>`;
       return `<div class="master-manager-row ${row.is_active===false?'is-inactive':''}"><div><input id="managed-value-${row.id}" value="${escapeHtml(row.value)}">${parentSelect}</div><div class="master-manager-meta">${usageHtml}<b>${row.is_active===false?'已停用':'使用中'}</b></div><div class="master-manager-actions"><button type="button" aria-label="上移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',-1)">↑</button><button type="button" aria-label="下移 ${escapeHtml(row.value)}" onclick="moveManagedOption('${row.id}',1)">↓</button><button type="button" onclick="renameManagedOption('${row.id}')">儲存名稱</button><button type="button" onclick="toggleManagedOption('${row.id}')">${row.is_active===false?'啟用':'停用'}</button><button type="button" class="danger" onclick="deleteManagedOption('${row.id}')">刪除</button></div></div>`;
     }).join('')||'<div class="expense-empty">目前沒有這一類資料。</div>';
     const pagination=rows.length>managerPageSize?`<nav class="master-manager-pagination" aria-label="Master Data 分頁"><button type="button" aria-label="第一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(1)">|‹</button><button type="button" aria-label="上一頁" ${activeManagerPage===1?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage-1})">‹</button><span>${activeManagerPage} / ${totalPages}</span><button type="button" aria-label="下一頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${activeManagerPage+1})">›</button><button type="button" aria-label="最末頁" ${activeManagerPage===totalPages?'disabled':''} onclick="setMasterManagerPage(${totalPages})">›|</button></nav>`:'';
