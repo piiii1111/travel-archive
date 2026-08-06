@@ -726,20 +726,20 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
 
 /* v1.2.2: keep Journey save actions reachable on mobile */
 @media(max-width:759px){
-  #journeyModal .modal{padding-bottom:calc(112px + env(safe-area-inset-bottom))}
+  #journeyModal .modal{padding-bottom:calc(19px + env(safe-area-inset-bottom))}
   #journeyModal .journey-modal-actions{
-    position:fixed;
-    left:27px;
-    right:27px;
-    bottom:calc(12px + env(safe-area-inset-bottom));
-    z-index:2002;
+    position:sticky;
+    left:auto;
+    right:auto;
+    bottom:calc(-19px - env(safe-area-inset-bottom));
+    z-index:8;
     width:auto;
-    margin:0;
-    padding:14px 0;
+    margin:16px -17px calc(-19px - env(safe-area-inset-bottom));
+    padding:14px 17px calc(19px + env(safe-area-inset-bottom));
     background:var(--paper);
     border-top:1px solid var(--line);
     box-shadow:0 -10px 24px rgba(40,42,40,.09);
-    border-radius:0 0 18px 18px;
+    border-radius:0 0 24px 24px;
   }
   #journeyModal .journey-modal-actions::after{content:none}
   #journeyModal .journey-modal-actions button{min-height:48px}

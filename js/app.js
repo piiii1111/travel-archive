@@ -324,7 +324,7 @@ function filterJourneys(keepPage=false){
   renderTimeline(filtered);
   renderMapPins(filtered);
   renderStats(filtered);
-  const status=document.getElementById('dbStatus');if(status){status.textContent=`已載入 ${filtered.length} 趟旅程`;status.className='db-status success'}
+  const status=document.getElementById('dbStatus');if(status){status.textContent=`已載入 ${filtered.length} 趟旅程`;status.className=`db-status success${document.getElementById('detailView')?.classList.contains('active')?' hidden':''}`}
 }
 function setJourneyPage(page){journeyPage=Math.max(1,Number(page)||1);filterJourneys(true);document.querySelector('.section-head')?.scrollIntoView({behavior:'smooth',block:'start'})}
 window.setJourneyPage=setJourneyPage;

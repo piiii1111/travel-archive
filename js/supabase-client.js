@@ -108,7 +108,7 @@
     }
   }
 
-  async function searchPlace(place, country) {
+  async function searchPlace(place, country, cities = []) {
     const countryCodes = {'台灣':'tw','臺灣':'tw','中國':'cn','中国':'cn','中華人民共和國':'cn','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','馬來西亞':'my','越南':'vn','菲律賓':'ph','印尼':'id','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','德國':'de','義大利':'it','意大利':'it','西班牙':'es','美國':'us','加拿大':'ca','澳洲':'au','澳大利亞':'au','紐西蘭':'nz','新西蘭':'nz'};
     const countryNames = {'GB':'United Kingdom','UK':'United Kingdom','英國（UK）':'United Kingdom'};
     const aliases = [
@@ -127,9 +127,22 @@
     const original = place.trim();
     const normalized = aliases.reduce((value,[pattern,replacement])=>pattern.test(value)?replacement:value, original);
     const code = countryCodes[country]||Object.entries(countryCodes).find(([name])=>String(country||'').includes(name))?.[1];
-    const removePrefix = original.replace(/^(?:北京|上海|倫敦|东京|東京|大阪|京都|福岡|釜山|首爾|首尔|曼谷)/u,'').trim();
+    const removePrefix = original.replace(/^(?:北京|上海|倫敦|台中|臺中|台北|臺北|桃園|东京|東京|大阪|京都|福岡|釜山|首爾|首尔|曼谷)/u,'').trim();
     const removeSuffix = original.replace(/(?:溫泉|温泉|國家公園|国家公园)$/u,'').trim();
-    const candidates = [...new Set([normalized, original, removePrefix, removeSuffix].filter(value=>value && value.length >= 2))];
+    const cityList = [...new Set((Array.isArray(cities)?cities:[]).map(value=>String(value||'').trim()).filter(Boolean))];
+    const coreTerms = [...new Set([original, removePrefix, removeSuffix].filter(value=>value && value.length >= 2))];
+    const candidates = [...new Set([
+      ...(normalized!==original?[normalized]:[]),
+      ...coreTerms.flatMap(term=>cityList.map(city=>`${term}, ${city}`)),
+      ...coreTerms
+    ])];
+    const normalizeGeoText = value=>String(value||'').normalize('NFKC').toLowerCase().replace(/臺/g,'台').replace(/[\s,，・·\/\\-]/g,'').replace(/[市區区縣县州省都府郡鄉乡鎮镇村]/g,'');
+    const cityKeys = cityList.map(normalizeGeoText).filter(key=>key.length>=2);
+    const matchesJourneyCity = result=>{
+      if(!cityKeys.length)return true;
+      const haystack=normalizeGeoText([result.display_name,Object.values(result.address||{}).join(' ')].join(' '));
+      return cityKeys.some(key=>haystack.includes(key));
+    };
     for (let index=0; index<candidates.length; index+=1) {
       if (index) await new Promise(resolve=>setTimeout(resolve,1050));
       const query = code?candidates[index]:[candidates[index], countryNames[country] || country].filter(Boolean).join(', ');
@@ -138,7 +151,8 @@
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
       if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
       const results = await response.json();
-      if (results[0]) return results[0];
+      const matched = results.find(matchesJourneyCity);
+      if (matched) return matched;
     }
     return null;
   }
@@ -156,13 +170,13 @@
     if (!place) return { latitude:null, longitude:null, pin_address:'' };
     const directCoordinates = parseCoordinates(place);
     if (directCoordinates) return directCoordinates;
-    let result = await searchPlace(place, country);
+    let result = await searchPlace(place, country, cities);
     if (!result) {
       const address = prompt(`找不到「${place}」的地理位置。\n\n請輸入較完整的實際地址，例如：宜蘭縣羅東鎮民權路。`);
       if (!address?.trim()) throw new Error('尚未找到代表地點，旅程尚未儲存。');
       const fallbackCoordinates = parseCoordinates(address);
       if (fallbackCoordinates) return fallbackCoordinates;
-      result = await searchPlace(address.trim(), country);
+      result = await searchPlace(address.trim(), country, cities);
       if (!result) throw new Error(`仍然找不到「${address.trim()}」，請確認地址後再試一次。`);
     }
     return { latitude:Number(result.lat), longitude:Number(result.lon), pin_address:result.display_name || '' };

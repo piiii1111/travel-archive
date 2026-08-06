@@ -1,6 +1,14 @@
-Travel Archive v1.5.5｜Supabase Connection
+Travel Archive v1.5.6｜Supabase Connection
 
 這個版本已完成：
+
+v1.5.6 城市定位與手機 Modal 修正：
+- 代表地點搜尋加入 Journey 城市條件，優先搜尋「地標＋城市＋國家」。
+- 有填城市時，定位結果必須符合其中一座城市；不再採用同國但不同城市的錯誤結果。
+- db-status success 僅顯示在首頁，Journey Detail 不再出現。
+- 手機 Journey 操作列改為只黏在 Modal 內，不再固定於整個瀏覽器視窗。
+- 移除操作列造成的欄位遮擋、浮動白塊與底部尖角。
+- 本版本不需要執行新的 SQL。
 
 v1.5.5 詳情操作與地標搜尋優化：
 - 移除總心得區塊的「編輯內容／清除內容」按鈕。
