@@ -629,6 +629,32 @@
     return true;
   }
 
+  async function matchingExpenseCurrencyCount(journeyId,oldCurrency){
+    if(!journeyId||!oldCurrency)return 0;
+    const {count,error}=await client.from('expenses').select('id',{count:'exact',head:true}).eq('journey_id',journeyId).eq('currency',oldCurrency);
+    if(error){console.error(error);alert(`費用幣別檢查失敗：${error.message}`);return null}
+    return count||0;
+  }
+
+  async function confirmJourneyCurrencyChange(journeyId,oldCurrency,newCurrency){
+    if(!oldCurrency||oldCurrency===newCurrency)return {confirmed:true,count:0};
+    const count=await matchingExpenseCurrencyCount(journeyId,oldCurrency);
+    if(count===null)return {confirmed:false,count:0};
+    if(!count)return {confirmed:true,count:0};
+    const confirmed=confirm(`偵測到 ${count} 筆費用仍使用原本的旅程主要幣別 ${oldCurrency}。\n\n儲存後，這些費用會同步改為 ${newCurrency}；已自行選擇其他幣別的費用不會更動。\n\n確定要儲存並同步嗎？`);
+    return {confirmed,count};
+  }
+
+  async function syncJourneyExpenseCurrencies(journeyId,oldCurrency,newCurrency,newDefaultRate){
+    if(!journeyId||!oldCurrency||!newCurrency||oldCurrency===newCurrency)return true;
+    const update={currency:newCurrency,updated_at:new Date().toISOString()};
+    if(newCurrency==='TWD')update.exchange_rate=1;
+    else if(oldCurrency==='TWD')update.exchange_rate=Number(newDefaultRate)||1;
+    const {error}=await client.from('expenses').update(update).eq('journey_id',journeyId).eq('currency',oldCurrency);
+    if(error){console.error(error);alert(`費用幣別同步失敗：${error.message}`);return false}
+    return true;
+  }
+
   async function updateJourneyDefaultRate(rate,previousRate){
     if(!currentUser||!window.currentJourneyId)return false;
     const normalized=Number(rate);if(!Number.isFinite(normalized)||normalized<=0)return false;
@@ -727,9 +753,15 @@
     };
     const previousRate=Number(previousJourney?.default_exchange_rate)||1;
     const rateChanged=Boolean(savedEditingJourneyId)&&previousRate!==Number(payload.default_exchange_rate);
+    const previousCurrency=previousJourney?.main_currency||'TWD';
+    const currencyChanged=Boolean(savedEditingJourneyId)&&previousCurrency!==payload.main_currency;
     const journeyDatesChanged=Boolean(savedEditingJourneyId)&&(previousJourney?.start_date!==startDate||previousJourney?.end_date!==endDate);
     if(rateChanged){
       const approval=await confirmJourneyRateChange(savedEditingJourneyId,previousRate,payload.default_exchange_rate);
+      if(!approval.confirmed)return;
+    }
+    if(currencyChanged){
+      const approval=await confirmJourneyCurrencyChange(savedEditingJourneyId,previousCurrency,payload.main_currency);
       if(!approval.confirmed)return;
     }
 
@@ -744,13 +776,14 @@
       return alert(`儲存失敗：${error.message}`);
     }
     if(rateChanged&&!await syncJourneyExpenseRates(savedEditingJourneyId,previousRate,payload.default_exchange_rate))return;
+    if(currencyChanged&&!await syncJourneyExpenseCurrencies(savedEditingJourneyId,previousCurrency,payload.main_currency,payload.default_exchange_rate))return;
     if(journeyDatesChanged&&!await rebaseJourneyDays(savedEditingJourneyId,startDate))return;
     for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';
     selectedCoverBlob = null;
     window.closeModal('journeyModal');
-    if((rateChanged||journeyDatesChanged)&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyDays(savedEditingJourneyId);
+    if((rateChanged||currencyChanged||journeyDatesChanged)&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyDays(savedEditingJourneyId);
     await loadJourneys();
   }
 
@@ -790,8 +823,10 @@
   }
 
   function expenseUiRow(row){
-    const dayIndex=cachedDayRows.findIndex(day=>day.id===row.day_id);
-    return {id:row.id,phase:row.phase||'pretrip',day:dayIndex>=0?`Day ${dayIndex+1}`:'',date:row.expense_date||'',category:row.category||'',item:row.item||'',currency:row.currency||'TWD',amount:row.amount===null?null:Number(row.amount),rate:row.exchange_rate===null?null:Number(row.exchange_rate),payer:row.payer||'',note:row.note||''};
+    let dayIndex=cachedDayRows.findIndex(day=>day.id===row.day_id);
+    if(dayIndex<0&&row.expense_date)dayIndex=cachedDayRows.findIndex(day=>day.day_date===row.expense_date);
+    const hasDay=dayIndex>=0;
+    return {id:row.id,phase:hasDay?'local':(row.phase||'pretrip'),day:hasDay?`Day ${dayIndex+1}`:'',date:row.expense_date||'',category:row.category||'',item:row.item||'',currency:row.currency||'TWD',amount:row.amount===null?null:Number(row.amount),rate:row.exchange_rate===null?null:Number(row.exchange_rate),payer:row.payer||'',note:row.note||''};
   }
 
   async function loadJourneyExpenses(journeyId){
@@ -886,6 +921,14 @@
     const {data,error}=await client.from('days').select('id,day_date').eq('journey_id',journeyId).order('day_date');if(error)throw error;
     await Promise.all((data||[]).map((row,index)=>client.from('days').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',row.id)));
   }
+  async function syncExpensesForDayMappings(journeyId,mappings){
+    const valid=(mappings||[]).filter(row=>row.id&&row.date);if(!journeyId||!valid.length)return true;
+    const updatedAt=new Date().toISOString();
+    const results=await Promise.all(valid.map(row=>client.from('expenses').update({expense_date:row.date,phase:'local',updated_at:updatedAt}).eq('journey_id',journeyId).eq('day_id',row.id)));
+    const failed=results.find(result=>result.error)?.error;
+    if(failed){alert(`費用日期同步失敗：${failed.message}`);return false}
+    return true;
+  }
   async function rebaseJourneyDays(journeyId,startDate){
     if(!journeyId||!startDate)return true;
     const {data,error}=await client.from('days').select('id').eq('journey_id',journeyId).order('sort_order').order('day_date');
@@ -897,6 +940,7 @@
     const temporaryError=temporary.find(result=>result.error)?.error;if(temporaryError){alert(`Day 日期同步失敗：${temporaryError.message}`);return false}
     const finalResults=await Promise.all(rows.map((row,index)=>client.from('days').update({sort_order:index,day_date:dateAt(index),updated_at:new Date().toISOString()}).eq('id',row.id)));
     const finalError=finalResults.find(result=>result.error)?.error;if(finalError){alert(`Day 日期同步失敗：${finalError.message}`);return false}
+    if(!await syncExpensesForDayMappings(journeyId,rows.map((row,index)=>({id:row.id,date:dateAt(index)}))))return false;
     return true;
   }
   async function saveJourneyDay(values){
@@ -904,12 +948,14 @@
     const payload={journey_id:window.currentJourneyId,owner_id:currentUser.id,day_date:values.date,tab_label:values.tabLabel||'',title:values.title||'',summary:values.summary||'',updated_at:new Date().toISOString()};
     const {data,error}=await (values.id?client.from('days').update(payload).eq('id',values.id):client.from('days').insert(payload)).select('id').single();
     if(error){alert(`Day 儲存失敗：${error.message}`);return false}
-    try{await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);return data?.id||values.id||true}catch(error){alert(`Day 排序失敗：${error.message}`);return false}
+    try{if(values.id&&!await syncExpensesForDayMappings(window.currentJourneyId,[{id:values.id,date:values.date}]))return false;await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);return data?.id||values.id||true}catch(error){alert(`Day 排序失敗：${error.message}`);return false}
   }
   async function deleteJourneyDay(id){
     if(!confirm('確定刪除這一天嗎？這一天之後建立的資料也會一起刪除。'))return;
     const {error}=await client.from('days').delete().eq('id',id);if(error)return alert(`刪除失敗：${error.message}`);
-    await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);document.querySelector('.journey-info-tab')?.click();
+    const journey=cachedJourneyRows.find(row=>String(row.id)===String(window.currentJourneyId));
+    if(!await rebaseJourneyDays(window.currentJourneyId,journey?.start_date||window.currentJourneyStart))return;
+    await loadJourneyDays(window.currentJourneyId);document.querySelector('.journey-info-tab')?.click();
   }
   async function persistJourneyDayOrder(records){
     const valid=(records||[]).filter(row=>row.id&&row.date);if(!valid.length)return;
@@ -918,6 +964,7 @@
     const temporaryFailed=temporary.find(result=>result.error);if(temporaryFailed)return alert(`Day 排序儲存失敗：${temporaryFailed.error.message}`);
     const results=await Promise.all(valid.map((row,index)=>client.from('days').update({sort_order:index,day_date:row.date,updated_at:new Date().toISOString()}).eq('id',row.id)));
     const failed=results.find(result=>result.error);if(failed)return alert(`Day 排序儲存失敗：${failed.error.message}`);
+    if(!await syncExpensesForDayMappings(window.currentJourneyId,valid))return;
     await loadJourneyDays(window.currentJourneyId);
   }
 
