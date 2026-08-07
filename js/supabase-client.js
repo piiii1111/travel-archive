@@ -575,6 +575,8 @@
     const { error } = await client.from('journeys').delete().eq('id', id);
     if (error) return alert(`刪除失敗：${error.message}`);
     if (options.returnHome) window.closeDetail?.();
+    cachedJourneyRows=cachedJourneyRows.filter(row=>String(row.id)!==String(id));
+    renderJourneys(cachedJourneyRows,cachedOptionRows);
     await loadJourneys();
   }
 
@@ -596,23 +598,43 @@
     return data||true;
   }
 
-  async function syncJourneyExpenseRates(journeyId,rate){
-    const normalized=Number(rate);
-    if(!journeyId||!Number.isFinite(normalized)||normalized<=0)return false;
+  async function matchingExpenseRateCount(journeyId,oldRate){
+    const normalized=Number(oldRate);
+    if(!journeyId||!Number.isFinite(normalized)||normalized<=0)return 0;
+    const {count,error}=await client.from('expenses').select('id',{count:'exact',head:true}).eq('journey_id',journeyId).neq('currency','TWD').eq('exchange_rate',normalized);
+    if(error){console.error(error);alert(`費用匯率檢查失敗：${error.message}`);return null}
+    return count||0;
+  }
+
+  async function confirmJourneyRateChange(journeyId,oldRate,newRate){
+    if(Number(oldRate)===Number(newRate))return {confirmed:true,count:0};
+    const count=await matchingExpenseRateCount(journeyId,oldRate);
+    if(count===null)return {confirmed:false,count:0};
+    if(!count)return {confirmed:true,count:0};
+    const confirmed=confirm(`偵測到 ${count} 筆費用仍使用原本的預設匯率 ${oldRate}。\n\n儲存後，這些費用會同步改為 ${newRate}；已使用其他自訂匯率的費用不會更動。\n\n確定要儲存並同步嗎？`);
+    return {confirmed,count};
+  }
+
+  async function syncJourneyExpenseRates(journeyId,oldRate,newRate){
+    const previous=Number(oldRate),normalized=Number(newRate);
+    if(!journeyId||!Number.isFinite(previous)||previous<=0||!Number.isFinite(normalized)||normalized<=0)return false;
+    if(previous===normalized)return true;
     const updatedAt=new Date().toISOString();
-    const {error:foreignError}=await client.from('expenses').update({exchange_rate:normalized,updated_at:updatedAt}).eq('journey_id',journeyId).neq('currency','TWD');
+    const {error:foreignError}=await client.from('expenses').update({exchange_rate:normalized,updated_at:updatedAt}).eq('journey_id',journeyId).neq('currency','TWD').eq('exchange_rate',previous);
     if(foreignError){console.error(foreignError);alert(`費用匯率同步失敗：${foreignError.message}`);return false}
-    const {error:twdError}=await client.from('expenses').update({exchange_rate:1,updated_at:updatedAt}).eq('journey_id',journeyId).eq('currency','TWD');
-    if(twdError){console.error(twdError);alert(`台幣費用匯率同步失敗：${twdError.message}`);return false}
     return true;
   }
 
-  async function updateJourneyDefaultRate(rate){
+  async function updateJourneyDefaultRate(rate,previousRate){
     if(!currentUser||!window.currentJourneyId)return false;
     const normalized=Number(rate);if(!Number.isFinite(normalized)||normalized<=0)return false;
+    const journey=cachedJourneyRows.find(row=>String(row.id)===String(window.currentJourneyId));
+    const previous=Number(previousRate)||Number(journey?.default_exchange_rate)||1;
+    const approval=await confirmJourneyRateChange(window.currentJourneyId,previous,normalized);
+    if(!approval.confirmed)return null;
     const {error}=await client.from('journeys').update({default_exchange_rate:normalized,updated_at:new Date().toISOString()}).eq('id',window.currentJourneyId);
     if(error){console.error(error);alert(`旅程匯率儲存失敗：${error.message}`);return false}
-    if(!await syncJourneyExpenseRates(window.currentJourneyId,normalized))return false;
+    if(!await syncJourneyExpenseRates(window.currentJourneyId,previous,normalized))return false;
     await loadJourneyExpenses(window.currentJourneyId);await loadJourneys();return true;
   }
 
@@ -699,6 +721,12 @@
       cover_path: coverPath,
       updated_at: new Date().toISOString()
     };
+    const previousRate=Number(previousJourney?.default_exchange_rate)||1;
+    const rateChanged=Boolean(savedEditingJourneyId)&&previousRate!==Number(payload.default_exchange_rate);
+    if(rateChanged){
+      const approval=await confirmJourneyRateChange(savedEditingJourneyId,previousRate,payload.default_exchange_rate);
+      if(!approval.confirmed)return;
+    }
 
     setStatus(editingJourneyId ? '正在更新旅程…' : '正在儲存旅程…');
     const query = editingJourneyId
@@ -710,8 +738,7 @@
       setStatus(`儲存失敗：${error.message}`, 'error');
       return alert(`儲存失敗：${error.message}`);
     }
-    const rateChanged=Boolean(savedEditingJourneyId)&&Number(previousJourney?.default_exchange_rate)!==Number(payload.default_exchange_rate);
-    if(rateChanged)await syncJourneyExpenseRates(savedEditingJourneyId,payload.default_exchange_rate);
+    if(rateChanged&&!await syncJourneyExpenseRates(savedEditingJourneyId,previousRate,payload.default_exchange_rate))return;
     for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';

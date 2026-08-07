@@ -407,9 +407,9 @@
       main{padding:24px 28px 80px}
       .home-grid{grid-template-columns:minmax(0,1.55fr) minmax(300px,.75fr);align-items:start}
       .intro{grid-column:2;grid-row:1}
-      .map-card{grid-column:1;grid-row:1 / span 2}
+      .map-area{grid-column:1;grid-row:1 / span 2;align-self:start}
       #map{height:600px}
-      .section{grid-column:2;margin-top:0}
+      .section{grid-column:2;grid-row:2;margin-top:0;align-self:start}
       .journey-list{max-height:505px;overflow:auto;padding-right:3px}
       .detail-view{max-width:800px;margin:auto}
       .detail-hero{margin:-24px 0 0;border-radius:0 0 30px 30px}
@@ -718,6 +718,9 @@ body.spot-sorting{
 .expense-row:hover,.expense-row:focus-visible{background:var(--paper-2);outline:none}
 .expense-row:active{transform:scale(.997)}
 .expense-delete{position:relative;z-index:2}
+.detail-hero #detailTitle,.detail-hero #detailMetaText,.review[role="button"]{cursor:pointer}
+.detail-hero #detailTitle:focus-visible,.detail-hero #detailMetaText:focus-visible,.review[role="button"]:focus-visible{outline:2px solid currentColor;outline-offset:5px}
+.expense-complete-message{font-size:14px;color:var(--accent-dark);font-weight:700}
 .timeline[draggable-list="true"] .spot-card{cursor:default;transition:transform .12s ease,box-shadow .12s ease,opacity .12s ease}
 .timeline[draggable-list="true"] .drag-handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .timeline[draggable-list="true"] .drag-handle:active{cursor:grabbing}

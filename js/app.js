@@ -235,6 +235,8 @@ function renderJourneyDetail(journey){
     window.currentJourneyEnd=journey.end||'';
     journeySettings.mainCurrency=journey.currency||journeySettings.mainCurrency;
     journeySettings.defaultRate=Number(journey.defaultRate)||journeySettings.defaultRate;
+    const budgetRateInput=document.getElementById('journeyRate');
+    if(budgetRateInput){budgetRateInput.value=journeySettings.defaultRate;budgetRateInput.dataset.persistedRate=String(journeySettings.defaultRate)}
     syncExpenseDayOptions();
     document.getElementById('detailTitle').textContent=journey.title;
     document.getElementById('detailEyebrow').textContent=`${journey.country}${journey.cities.length?` · ${journey.cities[0]}`:''}`;
@@ -516,7 +518,12 @@ let budgetFilterMode = 'all';
 let activeExpenseId = null;
 
 const prototypeExpenses = [];
-function setJourneyExpenses(rows=[]){prototypeExpenses.splice(0,prototypeExpenses.length,...rows);activeExpenseId=null;renderBudget()}
+function setJourneyExpenses(rows=[]){
+  const hadMissing=prototypeExpenses.some(isExpenseMissing);
+  prototypeExpenses.splice(0,prototypeExpenses.length,...rows);activeExpenseId=null;
+  if(budgetFilterMode==='missing'&&hadMissing&&!prototypeExpenses.some(isExpenseMissing))budgetFilterMode='all';
+  renderBudget();
+}
 window.setJourneyExpenses=setJourneyExpenses;
 
 function currencySymbol(currency){return currency==='JPY'?'¥':currency==='USD'?'US$':currency==='EUR'?'€':currency==='KRW'?'₩':currency==='THB'?'฿':'NT$'}
@@ -576,7 +583,6 @@ function renderBudget(){
   const list=document.getElementById('expenseList'); if(!list)return;
   const phaseSelect=document.getElementById('expensePhaseFilter');
   const missing=prototypeExpenses.filter(isExpenseMissing).length;
-  if(budgetFilterMode==='missing'&&missing===0){budgetFilterMode='all';if(phaseSelect)phaseSelect.value='all'}
   const phaseFilter=phaseSelect?.value||'all';
   let visible=prototypeExpenses.filter(e=>phaseFilter==='all'||e.phase===phaseFilter);
   if(budgetFilterMode==='missing') visible=visible.filter(isExpenseMissing);
@@ -584,6 +590,7 @@ function renderBudget(){
   const groups=visible.reduce((acc,e)=>{const key=e.phase==='local'?(e.day||'旅行中'):phaseLabels[e.phase];(acc[key]??=[]).push(e);return acc;},{});
   list.innerHTML=Object.entries(groups).map(([group,items])=>`<section class="expense-group"><div class="expense-group-title"><b>${group}</b><span>${items.length} 筆</span></div>${items.map(e=>`<article class="expense-row ${isExpenseMissing(e)?'expense-incomplete':''}" role="button" tabindex="0" aria-label="編輯 ${e.item||e.category||'費用'}" onclick="openExpenseModal('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpenseModal('${e.id}')}"><div class="expense-icon">${(e.category||'?').slice(0,1)}</div><div class="expense-main"><div><b>${e.item||'尚未填寫項目'}</b><span>${e.category||'未分類'} · ${e.payer||'未指定付款來源'} · ${e.date||'未填日期'}</span></div>${e.note?`<small>${e.note}</small>`:''}${isExpenseMissing(e)?'<small class="missing-label">需要補充完整資訊</small>':''}</div><div class="expense-value"><strong>${currencySymbol(e.currency)} ${e.amount===null?'—':numberText(e.amount)}</strong>${e.currency&&e.currency!=='TWD'?`<small>約 NT$ ${numberText(expenseTwd(e))}</small>`:'<small>台幣</small>'}</div><button class="expense-delete" type="button" aria-label="刪除費用" onclick="event.stopPropagation();deleteExpensePrototype('${e.id}')">×</button></article>`).join('')}</section>`).join('')||'<div class="expense-empty">這個篩選條件沒有費用。</div>';
 
+  if(budgetFilterMode==='missing'&&missing===0)list.innerHTML='<div class="expense-empty expense-complete-message">全部都已填寫完整。</div>';
   const total=prototypeExpenses.reduce((sum,e)=>sum+expenseTwd(e),0);
   document.getElementById('budgetTotalTwd').textContent=`NT$ ${numberText(total)}`;
   document.getElementById('budgetEntryCount').textContent=`${prototypeExpenses.length} 筆`;
@@ -610,8 +617,7 @@ function renderBudget(){
   document.getElementById('payerSummary').innerHTML=payerEntries.length?payerEntries.map(([name,value])=>`<div class="category-row"><div><b>${name}</b><span>NT$ ${numberText(value)}</span></div><div class="category-bar"><i style="width:${Math.max(4,value/payerMax*100)}%"></i></div></div>`).join(''):'<p class="summary-empty">尚無付款來源資料。</p>';
 }
 function setBudgetFilter(mode){
-  const missing=prototypeExpenses.filter(isExpenseMissing).length;
-  budgetFilterMode=mode==='missing'&&missing>0?'missing':'all';
+  budgetFilterMode=mode==='missing'?'missing':'all';
   const phase=document.getElementById('expensePhaseFilter');if(phase)phase.value='all';
   renderBudget();
   document.getElementById('expenseList')?.scrollIntoView({behavior:'smooth',block:'start'});
@@ -645,6 +651,15 @@ function autoAssignExpenseMeta(){
   if(phase)phase.value=phaseFromDate(date);
   if(day)day.value=dayFromDate(date);
 }
+function syncExpenseDateFromDay(){
+  const selected=document.getElementById('expenseDay')?.value;
+  if(!selected)return;
+  const option=(window.currentJourneyDayOptions||[]).find(item=>item.value===selected);
+  if(!option?.date)return;
+  const date=document.getElementById('expenseDate');if(date)date.value=option.date;
+  autoAssignExpenseMeta();
+}
+window.syncExpenseDateFromDay=syncExpenseDateFromDay;
 function toggleCustomRate(){
   const currency=document.getElementById('expenseCurrency')?.value;
   const rate=document.getElementById('expenseRate');
@@ -713,8 +728,11 @@ async function persistJourneyRate(){
   if(!window.currentJourneyId||!Number.isFinite(rate)||rate<=0)return;
   if(input)input.disabled=true;
   try{
-    const saved=await window.updateJourneyDefaultRate?.(rate);
+    const previous=Number(input?.dataset.persistedRate||journeySettings.defaultRate);
+    const saved=await window.updateJourneyDefaultRate?.(rate,previous);
     if(saved===false)alert('匯率同步失敗，請稍後再試。');
+    if(saved===null){setJourneyRate(previous);return;}
+    if(saved&&input)input.dataset.persistedRate=String(rate);
   }finally{if(input)input.disabled=false}
 }
 window.persistJourneyRate=persistJourneyRate;

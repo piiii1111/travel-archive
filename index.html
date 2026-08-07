@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.3">
+  <link rel="stylesheet" href="css/style.css?v=1.6.4">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -110,34 +110,7 @@
             </select>
           </div>
 
-          <div class="journey-list">
-            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="東北亞" data-search="日本 名古屋 常滑 水族館 中山道 麵包超人">
-              <div class="journey-top">
-                <div><div class="eyebrow">Japan · Nagoya</div><h3>名古屋六天五夜</h3><div class="date">2025.10.22－10.27</div></div>
-                <div class="pill">最新旅程</div>
-              </div>
-              <p class="summary" id="journeySummary">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
-              <div class="card-actions card-actions-end">
-                <div class="icon-actions"><button type="button" aria-label="編輯旅程" onclick="event.stopPropagation();openJourneyModal()">✎</button><button type="button" aria-label="刪除旅程" onclick="event.stopPropagation();confirm('確定刪除此旅程嗎？')">⌫</button></div>
-              </div>
-            </article>
-
-            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="台灣" data-search="台灣 淡水 漁人碼頭">
-              <div class="journey-top">
-                <div><div class="eyebrow">Taiwan · Tamsui</div><h3>淡水週末小旅行</h3><div class="date">2026.07.18－07.19</div></div>
-                <div class="pill">2 天</div>
-              </div>
-              <p class="summary">淡水老街、河岸散步與親子輕旅行。</p>
-            </article>
-
-            <article class="journey-card" role="button" tabindex="0" onclick="openDetail()" onkeydown="openJourneyCardByKey(event)" data-region="台灣" data-search="台灣 墾丁 海生館">
-              <div class="journey-top">
-                <div><div class="eyebrow">Taiwan · Kenting</div><h3>墾丁三天兩夜</h3><div class="date">2026.05.01－05.03</div></div>
-                <div class="pill">3 天</div>
-              </div>
-              <p class="summary">南國公路、海邊與一家人的慢步調假期。</p>
-            </article>
-          </div>
+          <div class="journey-list"><div class="expense-empty">正在讀取旅程…</div></div>
           <nav class="journey-pagination" id="journeyPagination" aria-label="Journey 分頁"></nav>
         </section>
       </div>
@@ -147,9 +120,9 @@
       <div class="detail-hero has-cover" id="detailHero">
         <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
-        <h1 id="detailTitle">東京六天五夜</h1>
+        <h1 id="detailTitle" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}">東京六天五夜</h1>
         <div class="hero-meta-row">
-          <p id="detailMetaText" data-generated-from="journey">2025.10.22－10.27　｜　6 天 5 夜　｜　代表地點：名古屋港水族館</p>
+          <p id="detailMetaText" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}" data-generated-from="journey">2025.10.22－10.27　｜　6 天 5 夜　｜　代表地點：名古屋港水族館</p>
           <div class="hero-badges"><span id="heroStatusBadge">已完成</span><span id="heroCurrencyBadge">JPY</span></div>
         </div>
       </div>
@@ -325,7 +298,7 @@
         <div class="budget-rate-card">
           <div><span>主要幣別</span><strong id="budgetMainCurrencyText">JPY 日圓</strong></div>
           <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="syncJourneyRateFromBudget()" onchange="persistJourneyRate()"><b>TWD</b></div></label>
-          <small>每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
+          <small>與旅程設定同步。每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
         </div>
 
         <div class="budget-kpis">
@@ -365,7 +338,7 @@
 
 <button class="empty-add-day" onclick="openDayModal()">＋ 新增一天</button>
 
-      <article class="review" id="journeyReview">
+      <article class="review" id="journeyReview" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}">
         <h3>旅遊總心得 · 旅遊標籤</h3>
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
       </article>
@@ -630,7 +603,7 @@
     <div class="modal-head"><h3 id="expenseModalTitle">新增費用</h3><button onclick="closeModal('expenseModal')">×</button></div>
     <div class="two-col">
       <div class="field"><label>消費階段</label><select id="expensePhase"><option value="pretrip">出發前</option><option value="local">旅行中</option><option value="posttrip">旅行後</option></select><small class="field-help">依日期自動判斷，仍可手動修改</small></div>
-      <div class="field"><label>所屬日程</label><select id="expenseDay"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select></div>
+      <div class="field"><label>所屬日程</label><select id="expenseDay" onchange="syncExpenseDateFromDay()"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select><small class="field-help">可選擇旅程 Day，或直接在下方自由選擇任何日期</small></div>
     </div>
     <div class="two-col">
       <div class="field"><label>類別</label><div class="inline-add"><select id="expenseCategory"><option>機票</option><option>住宿</option><option>交通</option><option>餐飲</option><option>票券</option><option>購物</option><option>通信</option><option>保險</option><option>其他</option></select><button type="button" class="secondary" onclick="addExpenseMasterOption('expense_category','expenseCategory','費用類別')">＋ 新增</button></div></div>
@@ -653,8 +626,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.3"></script>
-  <script src="js/supabase-client.js?v=1.6.3"></script>
+  <script src="js/app.js?v=1.6.4"></script>
+  <script src="js/supabase-client.js?v=1.6.4"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.
