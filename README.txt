@@ -290,3 +290,8 @@ v1.6.1 修正：
 - 新增／編輯旅程時可直接按「＋ 新增交通方式」；新增後會立即勾選並保存至 Master Data。
 - Journey Modal 的 journeyDefaultRate 與費用頁的 journeyRate 改為雙向同步，載入既有旅程時也會立即一致。
 - 本次不需要新增或執行 Supabase SQL，只需更新網站檔案。
+
+v1.6.2 修正：
+- Master Data 點選「Journey 使用・查看」後，Journey 卡片改用精準資料欄位的篩選結果顯示，不會再被 searchInput 的標示文字二次隱藏。
+- 新增／編輯費用時，空白的單筆匯率會自動套用旅程預設匯率；TWD 固定使用 1，避免 exchange_rate 寫入 null。
+- 本次不需要新增或執行 Supabase SQL，只需更新網站檔案。

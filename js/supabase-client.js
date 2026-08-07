@@ -239,7 +239,7 @@
         const expenseText=expenses.map(expense=>[expense.category,expense.item,expense.currency,expense.payer,expense.note].filter(Boolean).join(' ')).join(' ');
         const searchText = `${row.country || ''} ${row.country === '台灣' ? '臺灣' : ''} ${row.country === '臺灣' ? '台灣' : ''} ${row.title || ''} ${row.summary || ''} ${row.main_currency || ''} ${details.region || ''} ${tags.join(' ')} ${spotTypes.join(' ')} ${(details.cities || []).join(' ')} ${(details.transports || []).join(' ')} ${details.pin_place || ''} ${expenseText}`;
         return `
-        <article class="journey-card" role="button" tabindex="0" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
+        <article class="journey-card" role="button" tabindex="0" data-journey-id="${row.id}" data-region="${escapeHtml(details.region || window.inferRegionForCountry?.(row.country) || '其他')}" data-search="${escapeHtml(searchText)}" onclick="openDetail('${row.id}')">
           <div class="journey-top">
             <div><div class="eyebrow">${escapeHtml((row.country || 'TRIP').toUpperCase())}</div><h3>${escapeHtml(row.title)}</h3></div>
             <span class="status-badge">${journeyStatus(row)}</span>
@@ -737,7 +737,11 @@
     const existing=cachedExpenseRows.find(row=>row.id===values.id);
     const dayNumber=Number(String(values.day||'').match(/\d+/)?.[0]||0);
     const dayId=dayNumber>0?cachedDayRows[dayNumber-1]?.id||null:null;
-    const payload={journey_id:window.currentJourneyId,day_id:dayId,owner_id:currentUser.id,user_id:currentUser.id,phase:values.phase||'pretrip',expense_date:values.date||null,category:values.category||null,item:values.item||null,currency:values.currency||'TWD',amount:values.amount,exchange_rate:values.rate,payer:values.payer||null,note:values.note||null,updated_at:new Date().toISOString()};
+    const journey=cachedJourneyRows.find(row=>String(row.id)===String(window.currentJourneyId));
+    const customRate=Number(values.rate);
+    const journeyRate=Number(journey?.default_exchange_rate);
+    const exchangeRate=values.currency==='TWD'?1:(Number.isFinite(customRate)&&customRate>0?customRate:(Number.isFinite(journeyRate)&&journeyRate>0?journeyRate:1));
+    const payload={journey_id:window.currentJourneyId,day_id:dayId,owner_id:currentUser.id,user_id:currentUser.id,phase:values.phase||'pretrip',expense_date:values.date||null,category:values.category||null,item:values.item||null,currency:values.currency||'TWD',amount:values.amount,exchange_rate:exchangeRate,payer:values.payer||null,note:values.note||null,updated_at:new Date().toISOString()};
     const {error}=await (existing?client.from('expenses').update(payload).eq('id',existing.id):client.from('expenses').insert(payload));
     if(error){alert(`費用儲存失敗：${error.message}`);return false}
     window.closeModal?.('expenseModal');await loadJourneyExpenses(window.currentJourneyId);await loadJourneys();return true;

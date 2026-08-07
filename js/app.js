@@ -328,9 +328,10 @@ function filterJourneys(keepPage=false){
   const totalPages=Math.max(1,Math.ceil(filtered.length/journeyPageSize));
   journeyPage=Math.min(journeyPage,totalPages);
   const start=(journeyPage-1)*journeyPageSize;
+  const filteredIds=new Set(filtered.map(journey=>String(journey.id)));
   let matchedIndex=0;
   document.querySelectorAll('.journey-card').forEach(card=>{
-    const matches=(!q||String(card.dataset.search||'').toLowerCase().includes(q))&&(region==='all'||card.dataset.region===region);
+    const matches=filteredIds.has(String(card.dataset.journeyId));
     const visible=matches&&matchedIndex>=start&&matchedIndex<start+journeyPageSize;
     card.style.display=visible?'':'none';
     if(matches)matchedIndex+=1;
