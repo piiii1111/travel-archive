@@ -13,7 +13,7 @@ function normalizeText(value){return String(value || '').trim().replace(/\s+/g,'
 function escapeHtml(value){return String(value??'').replace(/[&<>'"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]))}
 function displayDate(value){return value?value.replaceAll('-','.'):'未設定'}
 function dateTimeText(value){return value?value.replace('T',' ').replaceAll('-','.'):'未填寫'}
-function canonicalCity(value){return normalizeText(value).replace(/[市]$/u,'')}
+function canonicalCity(value){return normalizeText(value).replace(/[市縣县]$/u,'')}
 function canonicalCountry(value){
   const country=normalizeText(value);
   if(['台灣','臺灣','Taiwan'].includes(country))return '台灣';
@@ -145,7 +145,7 @@ function syncJourneyDateFields(source=''){
   const inbound=document.getElementById('journeyInboundDate');
   if(inbound){inbound.removeAttribute('min');inbound.removeAttribute('max')}
   const dayInput=document.getElementById('dayEditDate');
-  if(dayInput){dayInput.min=start;dayInput.max=end;if(dayInput.value&&(dayInput.value<start||dayInput.value>end))dayInput.value=start}
+  if(dayInput){dayInput.removeAttribute('min');dayInput.removeAttribute('max')}
   [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id])=>{const input=document.getElementById(id);if(input){input.min=`${start}T00:00`;input.max=`${end}T23:59`;if(input.value&&(datePart(input.value)<start||datePart(input.value)>end))input.value=withDate(input.value,id==='journeyRentalReturnAt'?end:start)}});
 }
 function validateJourneyBoundedDate(input,label){
@@ -419,7 +419,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.querySelectorAll('[data-home-view]').forEach(btn=>btn.addEventListener('click',()=>switchHomeView(btn.dataset.homeView,btn)));
   window.addEventListener('scroll',closeDayMenus,{passive:true,capture:true});
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('.day-menu'))closeDayMenus()});
-  [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間'],['dayEditDate','Day 日期']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
+  [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
   document.getElementById('detailHero').style.backgroundImage="url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1600&q=85')";
 });
 

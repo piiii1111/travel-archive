@@ -273,17 +273,20 @@
     const rows = await Promise.all((data || []).map(resolveCoverUrl));
     let { data: optionRows, error: optionError } = await client.from('journey_options').select('*').order('created_at', { ascending: true });
     if (optionError) console.warn('讀取自訂選項失敗，請確認已執行 v1.2.9 SQL：', optionError.message);
-    const knownCities=new Set((optionRows||[]).filter(row=>row.option_type==='city').map(row=>`${row.parent_value}|${row.value}`));
+    const cityOptionGroups=new Map();
+    (optionRows||[]).filter(row=>row.option_type==='city').forEach(row=>{const key=`${row.parent_value}|${String(row.value||'').replace(/[市縣县]$/u,'')}`;const current=cityOptionGroups.get(key);if(!current||String(row.value).replace(/[市縣县]$/u,'')===row.value)cityOptionGroups.set(key,row)});
+    optionRows=[...(optionRows||[]).filter(row=>row.option_type!=='city'),...cityOptionGroups.values()];
+    const knownCities=new Set((optionRows||[]).filter(row=>row.option_type==='city').map(row=>`${row.parent_value}|${String(row.value||'').replace(/[市縣县]$/u,'')}`));
     const cityOptions=[];
-    rows.forEach(row=>(row.details?.cities||[]).forEach(city=>{const value=String(city||'').trim().replace(/市$/u,'');const key=`${row.country||''}|${value}`;if(value&&!knownCities.has(key)){knownCities.add(key);cityOptions.push({owner_id:currentUser.id,option_type:'city',parent_value:row.country||'',value,is_active:true,sort_order:(knownCities.size+1)*10,updated_at:new Date().toISOString()})}}));
+    rows.forEach(row=>(row.details?.cities||[]).forEach(city=>{const value=String(city||'').trim().replace(/[市縣县]$/u,'');const key=`${row.country||''}|${value}`;if(value&&!knownCities.has(key)){knownCities.add(key);cityOptions.push({owner_id:currentUser.id,option_type:'city',parent_value:row.country||'',value,is_active:true,sort_order:(knownCities.size+1)*10,updated_at:new Date().toISOString()})}}));
     if(cityOptions.length){const {data:newCities,error:cityError}=await client.from('journey_options').upsert(cityOptions,{onConflict:'owner_id,option_type,parent_value,value'}).select();if(cityError)console.warn('同步城市 Master Data 失敗：',cityError.message);else optionRows=[...(optionRows||[]),...(newCities||[])]}
     const cityMaster=(optionRows||[]).filter(row=>row.option_type==='city');
     await Promise.all(rows.map(async row=>{
       const original=Array.isArray(row.details?.cities)?row.details.cities:[];
       const normalized=[];
       original.forEach(city=>{
-        const key=String(city||'').trim().replace(/市$/u,'');
-        const master=cityMaster.find(option=>option.parent_value===row.country&&String(option.value).replace(/市$/u,'')===key);
+        const key=String(city||'').trim().replace(/[市縣县]$/u,'');
+        const master=cityMaster.find(option=>option.parent_value===row.country&&String(option.value).replace(/[市縣县]$/u,'')===key);
         const value=master?.value||key;
         if(value&&!normalized.includes(value))normalized.push(value);
       });
@@ -323,7 +326,7 @@
       const details=row.details||{};
       if(option.option_type==='region'&&details.region===option.value)return count+1;
       if(option.option_type==='country'&&row.country===option.value)return count+1;
-      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/市$/u,'')===option.value))return count+1;
+      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/[市縣县]$/u,'')===String(option.value).replace(/[市縣县]$/u,'')))return count+1;
       if(option.option_type==='currency'&&row.main_currency===option.value)return count+1;
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value))return count+1;
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value))return count+1;
@@ -373,7 +376,7 @@
       const details={...(row.details||{})};let payload=null;
       if(option.option_type==='region'&&details.region===option.value){details.region=newValue;payload={details}}
       if(option.option_type==='country'&&row.country===option.value)payload={country:newValue};
-      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/市$/u,'')===option.value)){details.cities=details.cities.map(city=>String(city).replace(/市$/u,'')===option.value?newValue:city);payload={details}}
+      if(option.option_type==='city'&&row.country===option.parent_value&&(details.cities||[]).some(city=>String(city).replace(/[市縣县]$/u,'')===String(option.value).replace(/[市縣县]$/u,''))){details.cities=details.cities.map(city=>String(city).replace(/[市縣县]$/u,'')===String(option.value).replace(/[市縣县]$/u,'')?newValue:city);payload={details}}
       if(option.option_type==='currency'&&row.main_currency===option.value)payload={main_currency:newValue};
       if(option.option_type==='transport'&&(details.transports||[]).includes(option.value)){details.transports=details.transports.map(value=>value===option.value?newValue:value);payload={details}}
       if(option.option_type==='tag'&&(details.tags||[]).includes(option.value)){details.tags=details.tags.map(value=>value===option.value?newValue:value);payload={details}}
@@ -723,6 +726,7 @@
     };
     const previousRate=Number(previousJourney?.default_exchange_rate)||1;
     const rateChanged=Boolean(savedEditingJourneyId)&&previousRate!==Number(payload.default_exchange_rate);
+    const journeyDatesChanged=Boolean(savedEditingJourneyId)&&(previousJourney?.start_date!==startDate||previousJourney?.end_date!==endDate);
     if(rateChanged){
       const approval=await confirmJourneyRateChange(savedEditingJourneyId,previousRate,payload.default_exchange_rate);
       if(!approval.confirmed)return;
@@ -739,12 +743,13 @@
       return alert(`儲存失敗：${error.message}`);
     }
     if(rateChanged&&!await syncJourneyExpenseRates(savedEditingJourneyId,previousRate,payload.default_exchange_rate))return;
+    if(journeyDatesChanged&&!await rebaseJourneyDays(savedEditingJourneyId,startDate))return;
     for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';
     selectedCoverBlob = null;
     window.closeModal('journeyModal');
-    if(rateChanged&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyExpenses(savedEditingJourneyId);
+    if((rateChanged||journeyDatesChanged)&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyDays(savedEditingJourneyId);
     await loadJourneys();
   }
 
@@ -879,6 +884,19 @@
     const {data,error}=await client.from('days').select('id,day_date').eq('journey_id',journeyId).order('day_date');if(error)throw error;
     await Promise.all((data||[]).map((row,index)=>client.from('days').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',row.id)));
   }
+  async function rebaseJourneyDays(journeyId,startDate){
+    if(!journeyId||!startDate)return true;
+    const {data,error}=await client.from('days').select('id').eq('journey_id',journeyId).order('sort_order').order('day_date');
+    if(error){alert(`Day 日期同步失敗：${error.message}`);return false}
+    const rows=data||[];if(!rows.length)return true;
+    const dateAt=index=>{const date=new Date(`${startDate}T00:00:00Z`);date.setUTCDate(date.getUTCDate()+index);return date.toISOString().slice(0,10)};
+    const temporaryDate=index=>{const date=new Date('1800-01-01T00:00:00Z');date.setUTCDate(date.getUTCDate()+index);return date.toISOString().slice(0,10)};
+    const temporary=await Promise.all(rows.map((row,index)=>client.from('days').update({day_date:temporaryDate(index),updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const temporaryError=temporary.find(result=>result.error)?.error;if(temporaryError){alert(`Day 日期同步失敗：${temporaryError.message}`);return false}
+    const finalResults=await Promise.all(rows.map((row,index)=>client.from('days').update({sort_order:index,day_date:dateAt(index),updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const finalError=finalResults.find(result=>result.error)?.error;if(finalError){alert(`Day 日期同步失敗：${finalError.message}`);return false}
+    return true;
+  }
   async function saveJourneyDay(values){
     if(!currentUser||!window.currentJourneyId)return false;
     const payload={journey_id:window.currentJourneyId,owner_id:currentUser.id,day_date:values.date,tab_label:values.tabLabel||'',title:values.title||'',summary:values.summary||'',updated_at:new Date().toISOString()};
@@ -892,7 +910,11 @@
     await normalizeJourneyDays(window.currentJourneyId);await loadJourneyDays(window.currentJourneyId);document.querySelector('.journey-info-tab')?.click();
   }
   async function persistJourneyDayOrder(records){
-    const results=await Promise.all((records||[]).map((row,index)=>client.from('days').update({sort_order:index,day_date:row.date,updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const valid=(records||[]).filter(row=>row.id&&row.date);if(!valid.length)return;
+    const temporaryDate=index=>{const date=new Date('1800-06-01T00:00:00Z');date.setUTCDate(date.getUTCDate()+index);return date.toISOString().slice(0,10)};
+    const temporary=await Promise.all(valid.map((row,index)=>client.from('days').update({day_date:temporaryDate(index),updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const temporaryFailed=temporary.find(result=>result.error);if(temporaryFailed)return alert(`Day 排序儲存失敗：${temporaryFailed.error.message}`);
+    const results=await Promise.all(valid.map((row,index)=>client.from('days').update({sort_order:index,day_date:row.date,updated_at:new Date().toISOString()}).eq('id',row.id)));
     const failed=results.find(result=>result.error);if(failed)return alert(`Day 排序儲存失敗：${failed.error.message}`);
     await loadJourneyDays(window.currentJourneyId);
   }
