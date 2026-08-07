@@ -340,6 +340,10 @@
     .two-col{display:grid;grid-template-columns:1fr 1fr;gap:9px}
     .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
     .check-chips{display:flex;gap:7px;flex-wrap:wrap}
+    .inline-option-add{
+      margin-top:9px;border:1px dashed var(--line);background:transparent;
+      border-radius:999px;padding:8px 11px;font-size:10px;color:var(--muted);
+    }
     .check-chip{
       position:relative;border:1px solid var(--line);background:#f3f1ec;
       border-radius:999px;padding:8px 11px;font-size:10px;color:var(--muted);

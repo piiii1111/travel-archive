@@ -99,6 +99,24 @@ async function addCustomCurrency(){
   const saved=await window.saveJourneyOption?.('currency',code,'');
   if(saved===false)alert('貨幣已加入目前畫面，但尚未保存到資料庫。');
 }
+function renderJourneyTransportChips(values,selectedValues=[]){
+  const container=document.getElementById('journeyTransportChips');
+  if(!container)return;
+  const selected=new Set(selectedValues);
+  container.innerHTML=[...new Set(values)].map(value=>`<label class="check-chip"><input type="checkbox" data-journey-transport value="${escapeHtml(value)}"${selected.has(value)?' checked':''}${value==='租車'?' onchange="toggleRentalFields()"':''}>${escapeHtml(value)}</label>`).join('');
+}
+async function addCustomTransport(){
+  const value=normalizeText(prompt('請輸入新的主要交通方式')||'');
+  if(!value)return;
+  const current=[...document.querySelectorAll('[data-journey-transport]')];
+  const values=current.map(input=>input.value);
+  const selected=current.filter(input=>input.checked).map(input=>input.value);
+  if(!values.includes(value))values.push(value);
+  if(!selected.includes(value))selected.push(value);
+  renderJourneyTransportChips(values,selected);
+  const saved=await window.saveJourneyOption?.('transport',value,'');
+  if(saved===false)alert('交通方式已加入目前畫面，但尚未保存到資料庫。');
+}
 function datePart(value){return String(value||'').slice(0,10)}
 function withDate(value,date){return date?`${date}T${String(value||'').slice(11,16)||'00:00'}`:''}
 function offsetDate(value,days){const date=new Date(`${value}T00:00:00`);date.setDate(date.getDate()+days);return date.toISOString().slice(0,10)}
@@ -482,13 +500,11 @@ function applyManagedMasterOptions(options=[]){
   const currencies=values('currency');if(currencies.length)masterData.currency=[...new Set(currencies)];
   const spotTypes=values('spot_type'),spotTypeSelect=document.getElementById('spotType');
   if(spotTypeSelect&&spotTypes.length){const previous=spotTypeSelect.value;spotTypeSelect.innerHTML=[...new Set(spotTypes)].map(value=>`<option>${escapeHtml(value)}</option>`).join('');if(spotTypes.includes(previous))spotTypeSelect.value=previous}
-  const transports=new Set(values('transport'));
-  if(transports.size){
-    const transportValues=values('transport');
-    const inputs=[...document.querySelectorAll('[data-journey-transport]')];
-    inputs.forEach(input=>{input.closest('.check-chip').hidden=!transports.has(input.value)});
-    const container=inputs[0]?.closest('.check-chips');
-    transportValues.forEach(value=>{const input=inputs.find(item=>item.value===value);if(input&&container)container.appendChild(input.closest('.check-chip'))});
+  const transportValues=values('transport');
+  if(transportValues.length){
+    const selected=[...document.querySelectorAll('[data-journey-transport]:checked')].map(input=>input.value);
+    renderJourneyTransportChips(transportValues,selected);
+    toggleRentalFields();
   }
   syncMasterSelects();renderMasterData();renderBudget();
 }
@@ -668,13 +684,20 @@ function syncJourneyCurrencySettings(){
   journeySettings.mainCurrency=document.getElementById('journeyMainCurrency').value;
   syncMasterSelects();renderBudget();
 }
+function setJourneyRate(value){
+  const normalized=Number(value)||0;
+  journeySettings.defaultRate=normalized;
+  const modalRate=document.getElementById('journeyDefaultRate');
+  const budgetRate=document.getElementById('journeyRate');
+  if(modalRate&&Number(modalRate.value)!==normalized)modalRate.value=normalized;
+  if(budgetRate&&Number(budgetRate.value)!==normalized)budgetRate.value=normalized;
+  renderBudget();
+}
 function syncJourneyRateSettings(){
-  journeySettings.defaultRate=Number(document.getElementById('journeyDefaultRate').value)||0;
-  const rate=document.getElementById('journeyRate');if(rate)rate.value=journeySettings.defaultRate;renderBudget();
+  setJourneyRate(document.getElementById('journeyDefaultRate')?.value);
 }
 function syncJourneyRateFromBudget(){
-  journeySettings.defaultRate=Number(document.getElementById('journeyRate').value)||0;
-  const field=document.getElementById('journeyDefaultRate');if(field)field.value=journeySettings.defaultRate;renderBudget();
+  setJourneyRate(document.getElementById('journeyRate')?.value);
 }
 function refreshDayOrder(){
   const nav=document.getElementById('daysNav');if(!nav)return;
@@ -713,6 +736,6 @@ function initDayDragging(){
 
 document.addEventListener('DOMContentLoaded',()=>{
   syncMasterSelects();renderMasterData();renderBudget();
-  const rate=document.getElementById('journeyRate');if(rate){rate.value=journeySettings.defaultRate;rate.oninput=syncJourneyRateFromBudget;}
+  const rate=document.getElementById('journeyRate');if(rate)rate.value=journeySettings.defaultRate;
   ['expenseAmount','expenseRate'].forEach(id=>document.getElementById(id)?.addEventListener('input',updateConvertedPreview));
 });

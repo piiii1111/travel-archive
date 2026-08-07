@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.0">
+  <link rel="stylesheet" href="css/style.css?v=1.6.1">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -324,7 +324,7 @@
 
         <div class="budget-rate-card">
           <div><span>主要幣別</span><strong id="budgetMainCurrencyText">JPY 日圓</strong></div>
-          <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="renderBudget()"><b>TWD</b></div></label>
+          <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="syncJourneyRateFromBudget()"><b>TWD</b></div></label>
           <small>每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
         </div>
 
@@ -516,7 +516,7 @@
       <h4 class="field-group-title">到達後的主要交通方式</h4>
       
 
-      <div class="check-chips">
+      <div class="check-chips" id="journeyTransportChips">
         <label class="check-chip"><input type="checkbox" data-journey-transport value="租車" onchange="toggleRentalFields()">租車</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="地鐵／捷運">地鐵／捷運</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="JR／火車／近鐵">JR／火車／近鐵</label>
@@ -528,6 +528,7 @@
         <label class="check-chip"><input type="checkbox" data-journey-transport value="自行車">自行車</label>
         <label class="check-chip"><input type="checkbox" data-journey-transport value="步行">步行</label>
       </div>
+      <button type="button" class="inline-option-add" onclick="addCustomTransport()">＋ 新增交通方式</button>
       <div class="field" style="margin-top:10px"><label>其他交通方式</label><input id="journeyOtherTransport" placeholder="例如：機場接駁、包車、纜車"></div>
 
       <div class="optional-block show" id="rentalFields">
@@ -652,8 +653,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.0"></script>
-  <script src="js/supabase-client.js?v=1.6.0"></script>
+  <script src="js/app.js?v=1.6.1"></script>
+  <script src="js/supabase-client.js?v=1.6.1"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

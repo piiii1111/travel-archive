@@ -500,6 +500,7 @@
     window.syncJourneyCountryOptions?.();
     setFieldValue('journeyMainCurrency', 'TWD');
     setFieldValue('journeyDefaultRate', '1');
+    window.syncJourneyRateSettings?.();
     if ($('applyExpenseTemplate')) $('applyExpenseTemplate').checked = true;
     if ($('cityInputGrid')) $('cityInputGrid').innerHTML = '<input placeholder="城市／地區 1">';
     if ($('journeyPhotoInput')) $('journeyPhotoInput').value = '';
@@ -527,6 +528,8 @@
     setFieldValue('journeyEnd', row.end_date);
     setFieldValue('journeyMainCurrency', row.main_currency || 'TWD');
     setFieldValue('journeyDefaultRate', row.default_exchange_rate ?? 1);
+    window.syncJourneyCurrencySettings?.();
+    window.syncJourneyRateSettings?.();
     const editRegion=details.region || window.inferRegionForCountry?.(row.country) || '其他';
     if($('journeyRegion')&&![...$('journeyRegion').options].some(option=>option.value===editRegion))$('journeyRegion').add(new Option(editRegion,editRegion));
     setFieldValue('journeyRegion', editRegion);

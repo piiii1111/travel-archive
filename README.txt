@@ -284,3 +284,9 @@ v1.3.6 更新：
 - 國家頁籤可依地區篩選；城市頁籤可依國家篩選。
 - 父層篩選選項仍沿用 Master Data 的自訂排序。
 - 本次不需要執行新的 Supabase SQL。
+
+v1.6.1 修正：
+- 「到達後的主要交通方式」完整依照 Master Data 的啟用狀態與順序產生，不再只支援原本寫死的選項。
+- 新增／編輯旅程時可直接按「＋ 新增交通方式」；新增後會立即勾選並保存至 Master Data。
+- Journey Modal 的 journeyDefaultRate 與費用頁的 journeyRate 改為雙向同步，載入既有旅程時也會立即一致。
+- 本次不需要新增或執行 Supabase SQL，只需更新網站檔案。
