@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.2">
+  <link rel="stylesheet" href="css/style.css?v=1.6.3">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -313,25 +313,25 @@
 
 
       <section class="day-section budget-section" data-day="budget">
-        <div class="budget-head">
-          <div>
-            <div class="day-kicker">TRIP COST</div>
+        <div class="budget-head day-header">
+          <div class="day-kicker">TRIP COST</div>
+          <div class="day-title-row">
             <h2>旅程費用</h2>
-            <p>保留每筆消費的原始幣別，同時換算成台幣彙總。出發前可以直接記台幣，抵達當地後則用當地幣別輸入。</p>
+            <span class="header-actions"><button class="header-action" type="button" onclick="openExpenseModal()">＋ 新增費用</button></span>
           </div>
-          <button class="header-action" type="button" onclick="openExpenseModal()">＋ 新增費用</button>
+          <p>保留每筆消費的原始幣別，同時換算成台幣彙總。出發前可以直接記台幣，抵達當地後則用當地幣別輸入。</p>
         </div>
 
         <div class="budget-rate-card">
           <div><span>主要幣別</span><strong id="budgetMainCurrencyText">JPY 日圓</strong></div>
-          <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="syncJourneyRateFromBudget()"><b>TWD</b></div></label>
+          <label><span>旅程換算匯率</span><div class="rate-input"><b id="budgetRateCurrencyLabel">1 JPY =</b><input id="journeyRate" type="number" step="0.0001" value="0.2052" oninput="syncJourneyRateFromBudget()" onchange="persistJourneyRate()"><b>TWD</b></div></label>
           <small>每筆費用仍保留原始金額。特殊刷卡匯率可在單筆紀錄中覆蓋。</small>
         </div>
 
         <div class="budget-kpis">
           <article><span>換算總花費</span><strong id="budgetTotalTwd">NT$ 0</strong><small>所有幣別換算後</small></article>
-          <article><span>已輸入</span><strong id="budgetEntryCount">0 筆</strong><small>包含零元與預設項目</small></article>
-          <article><span>未完成</span><strong id="budgetMissingCount">0 筆</strong><small>點提醒即可篩選</small></article>
+          <button class="budget-kpi-filter" id="budgetAllFilterButton" type="button" onclick="setBudgetFilter('all')"><span>已輸入</span><strong id="budgetEntryCount">0 筆</strong><small>點選顯示全部資料</small></button>
+          <button class="budget-kpi-filter" id="budgetMissingFilterButton" type="button" onclick="setBudgetFilter('missing')"><span>未完成</span><strong id="budgetMissingCount">0 筆</strong><small>點選只看缺漏資料</small></button>
           <article><span>主要幣別</span><strong id="budgetCurrencyKpi">JPY</strong><small>可於旅程設定修改</small></article>
         </div>
 
@@ -653,8 +653,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.2"></script>
-  <script src="js/supabase-client.js?v=1.6.2"></script>
+  <script src="js/app.js?v=1.6.3"></script>
+  <script src="js/supabase-client.js?v=1.6.3"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

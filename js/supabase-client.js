@@ -582,9 +582,38 @@
     if (!currentUser) return false;
     const siblingOrders=cachedOptionRows.filter(row=>row.option_type===optionType&&(!['country','city'].includes(optionType)||row.parent_value===(parentValue||''))).map(row=>Number(row.sort_order)||0);
     const payload = { owner_id:currentUser.id, option_type:optionType, parent_value:parentValue || '', value, is_active:true, sort_order:Math.max(0,...siblingOrders)+10, updated_at:new Date().toISOString() };
-    const { error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' });
+    const { data, error } = await client.from('journey_options').upsert(payload, { onConflict:'owner_id,option_type,parent_value,value' }).select().single();
     if (error) { console.error(error); return false; }
+    if(data){
+      const index=cachedOptionRows.findIndex(row=>row.id===data.id||(row.option_type===data.option_type&&row.parent_value===data.parent_value&&row.value===data.value));
+      if(index>=0)cachedOptionRows[index]=data;else cachedOptionRows.push(data);
+      const activeOptions=cachedOptionRows.filter(option=>option.is_active!==false).sort(optionCompare);
+      window.setRegionCountryData?.(cachedJourneyRows,activeOptions);
+      window.setCurrencyData?.(cachedJourneyRows,activeOptions);
+      window.applyManagedMasterOptions?.(activeOptions);
+      if($('masterDataModal')?.classList.contains('show'))renderMasterManager();
+    }
+    return data||true;
+  }
+
+  async function syncJourneyExpenseRates(journeyId,rate){
+    const normalized=Number(rate);
+    if(!journeyId||!Number.isFinite(normalized)||normalized<=0)return false;
+    const updatedAt=new Date().toISOString();
+    const {error:foreignError}=await client.from('expenses').update({exchange_rate:normalized,updated_at:updatedAt}).eq('journey_id',journeyId).neq('currency','TWD');
+    if(foreignError){console.error(foreignError);alert(`費用匯率同步失敗：${foreignError.message}`);return false}
+    const {error:twdError}=await client.from('expenses').update({exchange_rate:1,updated_at:updatedAt}).eq('journey_id',journeyId).eq('currency','TWD');
+    if(twdError){console.error(twdError);alert(`台幣費用匯率同步失敗：${twdError.message}`);return false}
     return true;
+  }
+
+  async function updateJourneyDefaultRate(rate){
+    if(!currentUser||!window.currentJourneyId)return false;
+    const normalized=Number(rate);if(!Number.isFinite(normalized)||normalized<=0)return false;
+    const {error}=await client.from('journeys').update({default_exchange_rate:normalized,updated_at:new Date().toISOString()}).eq('id',window.currentJourneyId);
+    if(error){console.error(error);alert(`旅程匯率儲存失敗：${error.message}`);return false}
+    if(!await syncJourneyExpenseRates(window.currentJourneyId,normalized))return false;
+    await loadJourneyExpenses(window.currentJourneyId);await loadJourneys();return true;
   }
 
   async function saveJourney() {
@@ -654,6 +683,8 @@
       }
     }
 
+    const savedEditingJourneyId=editingJourneyId;
+    const previousJourney=savedEditingJourneyId?cachedJourneyRows.find(row=>String(row.id)===String(savedEditingJourneyId)):null;
     const payload = {
       owner_id: currentUser.id,
       user_id: currentUser.id,
@@ -679,11 +710,14 @@
       setStatus(`儲存失敗：${error.message}`, 'error');
       return alert(`儲存失敗：${error.message}`);
     }
+    const rateChanged=Boolean(savedEditingJourneyId)&&Number(previousJourney?.default_exchange_rate)!==Number(payload.default_exchange_rate);
+    if(rateChanged)await syncJourneyExpenseRates(savedEditingJourneyId,payload.default_exchange_rate);
     for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';
     selectedCoverBlob = null;
     window.closeModal('journeyModal');
+    if(rateChanged&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyExpenses(savedEditingJourneyId);
     await loadJourneys();
   }
 
@@ -875,6 +909,7 @@
     window.loadJourneyExpenses = loadJourneyExpenses;
     window.saveJourneyExpense = saveJourneyExpense;
     window.deleteJourneyExpense = deleteJourneyExpense;
+    window.updateJourneyDefaultRate = updateJourneyDefaultRate;
     const originalOpenJourneyModal = window.openJourneyModal;
     window.openJourneyModal = function(mode) {
       if (mode !== 'edit') {
