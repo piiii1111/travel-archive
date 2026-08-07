@@ -9,6 +9,7 @@
   let existingCoverPath = '';
   let selectedCoverBlob = null;
   let selectedCoverPreviewUrl = '';
+  let removeCoverRequested = false;
   let cachedJourneyRows = [];
   let cachedOptionRows = [];
   let cachedSpotRows = [];
@@ -81,19 +82,34 @@
     canvas.height = Math.max(1, Math.round(image.height * scale));
     canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
     image.close?.();
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.84));
+    let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.84));
     if (!blob) throw new Error('照片轉換失敗，請改用另一張圖片。');
+    // iOS WebKit may encode a PNG even when WebP is requested. Supabase validates
+    // the Blob MIME before upload, so normalize the MIME for this browser fallback.
+    if(blob.type!=='image/webp')blob=new Blob([blob],{type:'image/webp'});
     return blob;
   }
 
   function showCoverPreview(url) {
     const preview = $('journeyPhotoPreview');
     if (preview) preview.style.backgroundImage = url ? `url("${String(url).replaceAll('"', '%22')}")` : '';
+    if ($('journeyPhotoRemove')) $('journeyPhotoRemove').hidden = !url;
+  }
+
+  function removeJourneyCover(){
+    removeCoverRequested=Boolean(existingCoverPath);
+    selectedCoverBlob=null;
+    if(selectedCoverPreviewUrl)URL.revokeObjectURL(selectedCoverPreviewUrl);
+    selectedCoverPreviewUrl='';
+    if($('journeyPhotoInput'))$('journeyPhotoInput').value='';
+    showCoverPreview('');
+    if($('journeyPhotoStatus'))$('journeyPhotoStatus').textContent=removeCoverRequested?'照片將在儲存旅程後移除。':'尚未選擇照片。';
   }
 
   async function handleCoverSelection(event) {
     const file = event.target.files?.[0];
     selectedCoverBlob = null;
+    removeCoverRequested = false;
     if (selectedCoverPreviewUrl) URL.revokeObjectURL(selectedCoverPreviewUrl);
     selectedCoverPreviewUrl = '';
     if (!file) return showCoverPreview('');
@@ -134,9 +150,23 @@
     const removePrefix = original.replace(/^(?:北京|上海|倫敦|台中|臺中|台北|臺北|桃園|东京|東京|大阪|京都|福岡|釜山|首爾|首尔|曼谷)/u,'').trim();
     const removeSuffix = original.replace(/(?:溫泉|温泉|國家公園|国家公园)$/u,'').trim();
     const cityList = [...new Set((Array.isArray(cities)?cities:[]).map(value=>String(value||'').trim()).filter(Boolean))];
+    const taiwanAddressVariants=[];
+    if(code==='tw'){
+      const clean=original.normalize('NFKC').replace(/^\s*\d{3,6}\s*/u,'').replace(/\s+/g,'');
+      const county=clean.match(/^(.+?[縣市])/u)?.[1]||'';
+      const afterCounty=county?clean.slice(county.length):clean;
+      const locality=afterCounty.match(/^(.+?[鄉鎮市區])/u)?.[1]||'';
+      const street=locality?afterCounty.slice(locality.length):'';
+      if(county&&locality&&street){
+        taiwanAddressVariants.push(`${street}, ${locality}, ${county}, 台灣`,`${clean}, 台灣`);
+        const roadOnly=street.replace(/\d+(?:之\d+)?號.*$/u,'').trim();
+        if(roadOnly&&roadOnly!==street)taiwanAddressVariants.push(`${roadOnly}, ${locality}, ${county}, 台灣`);
+      }else if(clean!==original)taiwanAddressVariants.push(clean);
+    }
     const coreTerms = [...new Set([original, removePrefix, removeSuffix].filter(value=>value && value.length >= 2))];
     const candidates = [...new Set([
       ...(normalized!==original?[normalized]:[]),
+      ...taiwanAddressVariants,
       ...coreTerms.flatMap(term=>cityList.map(city=>`${term}, ${city}`)),
       ...coreTerms
     ])];
@@ -512,6 +542,7 @@
     selectedCoverPreviewUrl = '';
     selectedCoverBlob = null;
     existingCoverPath = '';
+    removeCoverRequested = false;
     showCoverPreview('');
     if ($('journeyPhotoStatus')) $('journeyPhotoStatus').textContent = '可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。';
     if ($('reviewEditor')) $('reviewEditor').value = '';
@@ -520,12 +551,14 @@
     $('rentalFields')?.classList.remove('show');
     window.toggleFlightFields?.();
     window.syncJourneyDateFields?.();
+    window.togglePinLocationHelp?.(false);
   }
 
   function openJourneyForEdit(row) {
     resetJourneyForm();
     editingJourneyId = row.id;
     existingCoverPath = row.cover_path || '';
+    removeCoverRequested = false;
     const details = row.details || {};
     setFieldValue('journeyName', row.title);
     setFieldValue('journeyStart', row.start_date);
@@ -725,6 +758,7 @@
     };
     const journeyId = editingJourneyId || crypto.randomUUID();
     let coverPath = existingCoverPath || null;
+    const coverPathToRemove=removeCoverRequested&&existingCoverPath?existingCoverPath:'';
     if (selectedCoverBlob) {
       coverPath = `${currentUser.id}/${journeyId}.webp`;
       setStatus('正在上傳 WebP 照片…');
@@ -733,7 +767,7 @@
         setStatus(`照片上傳失敗：${uploadError.message}`, 'error');
         return alert(`照片上傳失敗：${uploadError.message}`);
       }
-    }
+    }else if(removeCoverRequested)coverPath=null;
 
     const savedEditingJourneyId=editingJourneyId;
     const previousJourney=savedEditingJourneyId?cachedJourneyRows.find(row=>String(row.id)===String(savedEditingJourneyId)):null;
@@ -778,10 +812,15 @@
     if(rateChanged&&!await syncJourneyExpenseRates(savedEditingJourneyId,previousRate,payload.default_exchange_rate))return;
     if(currencyChanged&&!await syncJourneyExpenseCurrencies(savedEditingJourneyId,previousCurrency,payload.main_currency,payload.default_exchange_rate))return;
     if(journeyDatesChanged&&!await rebaseJourneyDays(savedEditingJourneyId,startDate))return;
+    if(coverPathToRemove){
+      const {error:removeError}=await client.storage.from('journey-covers').remove([coverPathToRemove]);
+      if(removeError)console.warn('代表照片檔案移除失敗：',removeError.message);
+    }
     for(const tag of reviewTags)await saveJourneyOption('tag',tag,'');
     editingJourneyId = null;
     existingCoverPath = '';
     selectedCoverBlob = null;
+    removeCoverRequested = false;
     window.closeModal('journeyModal');
     if((rateChanged||currencyChanged||journeyDatesChanged)&&String(window.currentJourneyId)===String(savedEditingJourneyId))await loadJourneyDays(savedEditingJourneyId);
     await loadJourneys();
@@ -894,6 +933,19 @@
     await loadJourneys();if($('spotType'))$('spotType').value=value;
   }
 
+  async function normalizeSpotOrderByTime(dayId){
+    const {data,error}=await client.from('spots').select('id,visit_time,sort_order,created_at').eq('day_id',dayId);
+    if(error){alert(`節點時間排序失敗：${error.message}`);return false}
+    const rows=(data||[]).sort((a,b)=>{
+      const aTime=String(a.visit_time||'99:99'),bTime=String(b.visit_time||'99:99');
+      return aTime.localeCompare(bTime)||(Number(a.sort_order)||0)-(Number(b.sort_order)||0)||String(a.created_at||'').localeCompare(String(b.created_at||''));
+    });
+    const results=await Promise.all(rows.map((row,index)=>client.from('spots').update({sort_order:index,updated_at:new Date().toISOString()}).eq('id',row.id)));
+    const failed=results.find(result=>result.error)?.error;
+    if(failed){alert(`節點時間排序失敗：${failed.message}`);return false}
+    return true;
+  }
+
   async function saveSpot(){
     const id=$('spotEditId').value,dayId=$('spotDayId').value,name=$('spotName').value.trim();
     if(!name)return alert('請輸入行程節點名稱。');
@@ -901,6 +953,7 @@
     const payload={journey_id:window.currentJourneyId,day_id:dayId,owner_id:currentUser.id,user_id:currentUser.id,spot_type:$('spotType').value,name,visit_time:$('spotTime').value||null,note:$('spotNote').value.trim()||null,review:$('spotReview').value.trim()||null,sort_order:existing?.sort_order??siblings.length,updated_at:new Date().toISOString()};
     const {error}=await (id?client.from('spots').update(payload).eq('id',id):client.from('spots').insert(payload));
     if(error)return alert(`行程節點儲存失敗：${error.message}`);
+    if(!await normalizeSpotOrderByTime(dayId))return;
     window.closeModal?.('spotModal');await loadJourneySpots(window.currentJourneyId);
   }
 
@@ -1001,6 +1054,7 @@
     window.persistJourneyDayOrder = persistJourneyDayOrder;
     window.openSpotModal = openSpotEditor;
     window.saveSpot = saveSpot;
+    window.removeJourneyCover = removeJourneyCover;
     window.addCustomSpotType = addCustomSpotType;
     window.deleteJourneySpot = deleteJourneySpot;
     window.persistJourneySpotOrder = persistJourneySpotOrder;

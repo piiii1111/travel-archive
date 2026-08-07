@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.7">
+  <link rel="stylesheet" href="css/style.css?v=1.6.8">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -80,7 +80,7 @@
       <div class="home-grid">
         <div class="map-area">
           <div class="archive-view-tabs" role="tablist" aria-label="首頁檢視切換">
-            <button class="archive-view-tab active" type="button" data-home-view="map">⌖ 地圖</button>
+            <button class="archive-view-tab active" type="button" data-home-view="map">⌖ 旅圖</button>
             <button class="archive-view-tab" type="button" data-home-view="timeline">⌁ 時光軸</button>
           </div>
           <div class="map-card" id="mapCard">
@@ -120,7 +120,7 @@
 
     <section class="detail-view" id="detailView">
       <div class="detail-hero has-cover" id="detailHero">
-        <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
+        <button class="back-button" onclick="closeDetail()">← 回到首頁</button>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
         <h1 id="detailTitle" role="button" tabindex="0" onclick="editActiveJourney('modal-head')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney('modal-head')}">東京六天五夜</h1>
         <div class="hero-meta-row">
@@ -411,14 +411,15 @@
       </div>
 
       <div class="field">
-        <label>代表地點（每個旅程一個 Pin）</label>
+        <label class="label-with-help">代表地點（每個旅程一個 Pin）<button class="field-help-icon" id="pinLocationHelpButton" type="button" onclick="togglePinLocationHelp()" aria-label="展開定位使用說明" aria-expanded="false" aria-controls="pinLocationHelp">？</button></label>
+        <p class="field-inline-help" id="pinLocationHelp" hidden>請先將定位城市加入上方欄位並排在第一格，再輸入地標或完整地址。若仍找不到，可在提示視窗直接輸入「緯度, 經度」。</p>
         <input id="journeyPinPlace" value="東京鐵塔" placeholder="輸入景點、城市或地址">
       </div>
 
       <div class="field">
         <label>旅程代表照片（每個旅程一張）</label>
         <div class="journey-photo-upload">
-          <div class="journey-photo-preview" id="journeyPhotoPreview"></div>
+          <div class="journey-photo-preview" id="journeyPhotoPreview"><button class="journey-photo-remove" id="journeyPhotoRemove" type="button" onclick="removeJourneyCover()" aria-label="移除旅程代表照片" hidden>×</button></div>
           <div>
             <input id="journeyPhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
             <p id="journeyPhotoStatus">可上傳 JPG、PNG 或 WebP；儲存時會自動轉成 WebP。</p>
@@ -630,8 +631,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.7"></script>
-  <script src="js/supabase-client.js?v=1.6.7"></script>
+  <script src="js/app.js?v=1.6.8"></script>
+  <script src="js/supabase-client.js?v=1.6.8"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

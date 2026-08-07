@@ -297,6 +297,12 @@ function scrollActiveViewToTop(){
   else window.scrollTo({top:0,behavior:'smooth'});
 }
 window.scrollActiveViewToTop=scrollActiveViewToTop;
+function togglePinLocationHelp(force){
+  const help=document.getElementById('pinLocationHelp'),button=document.getElementById('pinLocationHelpButton');if(!help||!button)return;
+  const open=typeof force==='boolean'?force:help.hidden;
+  help.hidden=!open;button.setAttribute('aria-expanded',String(open));button.setAttribute('aria-label',open?'收起定位使用說明':'展開定位使用說明');
+}
+window.togglePinLocationHelp=togglePinLocationHelp;
 window.goHomeFromBrand=goHomeFromBrand;
 function showDay(day,button){
   document.querySelectorAll('.day-tab').forEach(b=>b.classList.remove('active'));

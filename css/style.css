@@ -731,6 +731,14 @@ body.spot-sorting,body.spot-sorting *{cursor:grabbing!important}
 .back-to-top{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:calc(62px + env(safe-area-inset-bottom));z-index:1200;width:38px;height:38px;padding:0;border:1px solid rgba(255,255,255,.5);border-radius:50%;background:rgba(55,59,57,.88);color:#fff;font-size:19px;line-height:1;box-shadow:0 8px 22px rgba(35,38,36,.18);backdrop-filter:blur(10px)}
 .back-to-top:hover{background:var(--accent-dark);transform:translateY(-1px)}
 body.modal-open .back-to-top{bottom:calc(94px + env(safe-area-inset-bottom));z-index:1400}
+.label-with-help{display:flex!important;align-items:center;gap:7px}
+.field-help-icon{display:inline-grid;place-items:center;width:20px;height:20px;padding:0;border:1px solid var(--line-dark);border-radius:50%;background:transparent;color:var(--muted);font-size:12px;font-weight:800;line-height:1}
+.field-help-icon:hover{background:var(--paper-2);color:var(--ink)}
+.field-inline-help{margin:2px 0 8px;padding:9px 11px;border-left:3px solid var(--line-dark);border-radius:0 9px 9px 0;background:var(--paper-2);color:var(--muted);font-size:11px;line-height:1.7}
+.field-inline-help[hidden]{display:none}
+.journey-photo-preview{position:relative}
+.journey-photo-remove{position:absolute;right:9px;top:9px;z-index:2;display:grid;place-items:center;width:28px;height:28px;padding:0;border:1px solid rgba(255,255,255,.72);border-radius:50%;background:rgba(47,49,47,.82);color:#fff;font-size:19px;line-height:1;box-shadow:0 4px 12px rgba(0,0,0,.18)}
+.journey-photo-remove[hidden]{display:none}
 
 /* v1.2.1: no-flight journey option */
 .no-flight-option{margin-bottom:14px}
