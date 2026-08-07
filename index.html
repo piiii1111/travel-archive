@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.5">
+  <link rel="stylesheet" href="css/style.css?v=1.6.6">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -122,9 +122,9 @@
       <div class="detail-hero has-cover" id="detailHero">
         <button class="back-button" onclick="closeDetail()">← 回到地圖</button>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
-        <h1 id="detailTitle" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}">東京六天五夜</h1>
+        <h1 id="detailTitle" role="button" tabindex="0" onclick="editActiveJourney('modal-head')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney('modal-head')}">東京六天五夜</h1>
         <div class="hero-meta-row">
-          <p id="detailMetaText" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}" data-generated-from="journey">2025.10.22－10.27　｜　6 天 5 夜　｜　代表地點：名古屋港水族館</p>
+          <p id="detailMetaText" role="button" tabindex="0" onclick="editActiveJourney('journeyStart')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney('journeyStart')}" data-generated-from="journey">2025.10.22－10.27　｜　6 天 5 夜　｜　代表地點：名古屋港水族館</p>
           <div class="hero-badges"><span id="heroStatusBadge">已完成</span><span id="heroCurrencyBadge">JPY</span></div>
         </div>
       </div>
@@ -246,7 +246,7 @@
           <div class="day-title-row">
             <h2>旅程資訊</h2>
             <span class="header-actions">
-              <button class="header-action" type="button" onclick="editActiveJourney()">✎ 編輯旅途</button>
+              <button class="header-action" type="button" onclick="editActiveJourney('modal-head')">✎ 編輯旅途</button>
               <button class="header-action danger" type="button" onclick="deleteActiveJourney()">刪除旅程</button>
             </span>
           </div>
@@ -318,13 +318,15 @@
           <section class="expense-panel">
             <div class="budget-panel-head">
               <div><div class="eyebrow">EXPENSE LOG</div><h3>花費明細</h3></div>
-              <select id="expensePhaseFilter" onchange="renderBudget()"><option value="all">全部階段</option><option value="pretrip">出發前</option><option value="local">旅行中</option><option value="posttrip">旅行後</option></select>
             </div>
             <div class="expense-list" id="expenseList"></div>
           </section>
 
           <aside class="budget-summary-panel">
-            <div class="eyebrow">CATEGORY SUMMARY</div><h3>類別統計</h3>
+            <div class="budget-panel-head">
+              <div><div class="eyebrow">CATEGORY SUMMARY</div><h3>類別統計</h3></div>
+              <select id="expensePhaseFilter" onchange="renderBudget()"><option value="all">全部</option><option value="pretrip">出發前</option><option value="posttrip">旅遊後</option></select>
+            </div>
             <div id="categorySummary" class="category-summary"></div>
             <div class="payer-summary-block">
               <div class="eyebrow">PAYMENT SOURCE</div><h3>付款來源統計</h3>
@@ -340,7 +342,7 @@
 
 <button class="empty-add-day" onclick="openDayModal()">＋ 新增一天</button>
 
-      <article class="review" id="journeyReview" role="button" tabindex="0" onclick="editActiveJourney()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney()}">
+      <article class="review" id="journeyReview" role="button" tabindex="0" onclick="editActiveJourney('journeyReviewFields')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney('journeyReviewFields')}">
         <h3>旅遊總心得 · 旅遊標籤</h3>
         <p id="reviewText">名古屋近郊適合親子自駕，水族館與麵包超人博物館是孩子最有記憶點的行程。下次會減少購物點，把更多時間留給郊區散步。</p>
       </article>
@@ -628,8 +630,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.5"></script>
-  <script src="js/supabase-client.js?v=1.6.5"></script>
+  <script src="js/app.js?v=1.6.6"></script>
+  <script src="js/supabase-client.js?v=1.6.6"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.
@@ -778,6 +780,7 @@
           if (section) renderDayRecord(tab, section, index+1);
         });
         syncExpenseDayOptions();
+        window.syncExpensePhaseFilterOptions?.();
       }
 
       function sortByDateAndRender(activeId){

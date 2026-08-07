@@ -272,9 +272,18 @@ function renderJourneyInfo(journey){
     ${rentalCard}
     <article class="journey-info-card"><div class="journey-info-icon">⌖</div><div><div class="eyebrow">代表地點</div><h3>${escapeHtml(d.pin_place||'未填寫')}</h3><dl><div><dt>定位地址</dt><dd>${escapeHtml(d.pin_address||'未填寫')}</dd></div><div><dt>主要交通</dt><dd>${escapeHtml([...(d.transports||[]),d.other_transport].filter(Boolean).join('、')||'未填寫')}</dd></div></dl></div></article>`;
 }
-function editActiveJourney(){
+function editActiveJourney(target='modal-head'){
   if(!activeJourneyId)return;
-  window.travelArchiveEditJourney?.(activeJourneyId);
+  const result=window.travelArchiveEditJourney?.(activeJourneyId);
+  Promise.resolve(result).then(()=>setTimeout(()=>{
+    const modal=document.querySelector('#journeyModal .modal');
+    const destination=target==='modal-head'?modal?.querySelector('.modal-head'):document.getElementById(target);
+    if(!modal||!destination)return;
+    const top=target==='modal-head'?0:Math.max(0,destination.getBoundingClientRect().top-modal.getBoundingClientRect().top+modal.scrollTop-18);
+    modal.scrollTo({top,behavior:'smooth'});
+    if(target!=='modal-head'&&destination.matches('input,select,textarea'))destination.focus({preventScroll:true});
+  },120));
+  return result;
 }
 function deleteActiveJourney(){
   if(!activeJourneyId)return;
@@ -552,6 +561,14 @@ function phaseFromDate(date){
   return 'local';
 }
 function syncExpenseDayOptions(){const select=document.getElementById('expenseDay');if(!select||!journeySettings.start||!journeySettings.end)return;const selected=select.value;const actualDays=window.currentJourneyDayOptions||[];let options='<option value="">未指定</option>';if(actualDays.length){options+=actualDays.map(option=>`<option value="${option.value}">${option.value} · ${String(option.date||'').replaceAll('-','/')}</option>`).join('')}else{const start=new Date(`${journeySettings.start}T00:00:00`),end=new Date(`${journeySettings.end}T00:00:00`);let index=1;for(let date=new Date(start);date<=end;date.setDate(date.getDate()+1),index++){const value=`Day ${index}`,label=`${value} · ${date.getFullYear()}/${String(date.getMonth()+1).padStart(2,'0')}/${String(date.getDate()).padStart(2,'0')}`;options+=`<option value="${value}">${label}</option>`}}select.innerHTML=options;select.value=[...select.options].some(option=>option.value===selected)?selected:''}
+function syncExpensePhaseFilterOptions(){
+  const select=document.getElementById('expensePhaseFilter');if(!select)return;
+  const selected=select.value||'all';
+  const days=window.currentJourneyDayOptions||[];
+  select.innerHTML='<option value="all">全部</option><option value="pretrip">出發前</option>'+days.map(day=>`<option value="day:${escapeHtml(day.value)}">${escapeHtml(day.value)}</option>`).join('')+'<option value="posttrip">旅遊後</option>';
+  select.value=[...select.options].some(option=>option.value===selected)?selected:'all';
+}
+window.syncExpensePhaseFilterOptions=syncExpensePhaseFilterOptions;
 function localToday(){const now=new Date();return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`}
 function populateSelect(id,items,selected){
   const el=document.getElementById(id); if(!el)return;
@@ -582,18 +599,24 @@ async function deleteExpensePrototype(id){
 function renderBudget(){
   const list=document.getElementById('expenseList'); if(!list)return;
   const phaseSelect=document.getElementById('expensePhaseFilter');
-  const missing=prototypeExpenses.filter(isExpenseMissing).length;
   const phaseFilter=phaseSelect?.value||'all';
-  let visible=prototypeExpenses.filter(e=>phaseFilter==='all'||e.phase===phaseFilter);
+  const periodExpenses=prototypeExpenses.filter(expense=>{
+    if(phaseFilter==='all')return true;
+    if(phaseFilter==='pretrip'||phaseFilter==='posttrip')return expense.phase===phaseFilter;
+    if(phaseFilter.startsWith('day:'))return expense.phase==='local'&&expense.day===phaseFilter.slice(4);
+    return true;
+  });
+  const missing=periodExpenses.filter(isExpenseMissing).length;
+  let visible=[...periodExpenses];
   if(budgetFilterMode==='missing') visible=visible.filter(isExpenseMissing);
-  const phaseLabels={pretrip:'出發前',local:'旅行中',posttrip:'旅行後'};
+  const phaseLabels={pretrip:'出發前',local:'旅行中',posttrip:'旅遊後'};
   const groups=visible.reduce((acc,e)=>{const key=e.phase==='local'?(e.day||'旅行中'):phaseLabels[e.phase];(acc[key]??=[]).push(e);return acc;},{});
   list.innerHTML=Object.entries(groups).map(([group,items])=>`<section class="expense-group"><div class="expense-group-title"><b>${group}</b><span>${items.length} 筆</span></div>${items.map(e=>`<article class="expense-row ${isExpenseMissing(e)?'expense-incomplete':''}" role="button" tabindex="0" aria-label="編輯 ${e.item||e.category||'費用'}" onclick="openExpenseModal('${e.id}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openExpenseModal('${e.id}')}"><div class="expense-icon">${(e.category||'?').slice(0,1)}</div><div class="expense-main"><div><b>${e.item||'尚未填寫項目'}</b><span>${e.category||'未分類'} · ${e.payer||'未指定付款來源'} · ${e.date||'未填日期'}</span></div>${e.note?`<small>${e.note}</small>`:''}${isExpenseMissing(e)?'<small class="missing-label">需要補充完整資訊</small>':''}</div><div class="expense-value"><strong>${currencySymbol(e.currency)} ${e.amount===null?'—':numberText(e.amount)}</strong>${e.currency&&e.currency!=='TWD'?`<small>約 NT$ ${numberText(expenseTwd(e))}</small>`:'<small>台幣</small>'}</div><button class="expense-delete" type="button" aria-label="刪除費用" onclick="event.stopPropagation();deleteExpensePrototype('${e.id}')">×</button></article>`).join('')}</section>`).join('')||'<div class="expense-empty">這個篩選條件沒有費用。</div>';
 
   if(budgetFilterMode==='missing'&&missing===0)list.innerHTML='<div class="expense-empty expense-complete-message">全部都已填寫完整。</div>';
-  const total=prototypeExpenses.reduce((sum,e)=>sum+expenseTwd(e),0);
+  const total=periodExpenses.reduce((sum,e)=>sum+expenseTwd(e),0);
   document.getElementById('budgetTotalTwd').textContent=`NT$ ${numberText(total)}`;
-  document.getElementById('budgetEntryCount').textContent=`${prototypeExpenses.length} 筆`;
+  document.getElementById('budgetEntryCount').textContent=`${periodExpenses.length} 筆`;
   document.getElementById('budgetMissingCount').textContent=`${missing} 筆`;
   document.getElementById('budgetCurrencyKpi').textContent=journeySettings.mainCurrency;
   document.getElementById('budgetMainCurrencyText').textContent=`${journeySettings.mainCurrency} ${journeySettings.mainCurrency==='JPY'?'日圓':''}`;
@@ -601,24 +624,24 @@ function renderBudget(){
   document.getElementById('heroCurrencyBadge').textContent=journeySettings.mainCurrency;
   const notice=document.getElementById('missingInfoCard');
   document.getElementById('missingInfoText').textContent=missing?`還有 ${missing} 筆消費尚未完成`:'所有消費資料都已完成';
+  if(notice)notice.hidden=missing===0;
   notice?.classList.toggle('is-clear',missing===0);
   notice?.classList.toggle('active',budgetFilterMode==='missing');
   document.getElementById('budgetAllFilterButton')?.classList.toggle('active',budgetFilterMode==='all');
   document.getElementById('budgetMissingFilterButton')?.classList.toggle('active',budgetFilterMode==='missing');
 
-  const categories=prototypeExpenses.filter(e=>e.category && e.amount!==null).reduce((acc,e)=>{acc[e.category]=(acc[e.category]||0)+expenseTwd(e);return acc},{});
+  const categories=periodExpenses.filter(e=>e.category && e.amount!==null).reduce((acc,e)=>{acc[e.category]=(acc[e.category]||0)+expenseTwd(e);return acc},{});
   const entries=Object.entries(categories).filter(([,value])=>value>0).sort((a,b)=>b[1]-a[1]);
   const max=Math.max(...entries.map(([,v])=>v),1);
   document.getElementById('categorySummary').innerHTML=entries.length?entries.map(([name,value])=>`<div class="category-row"><div><b>${name}</b><span>NT$ ${numberText(value)}</span></div><div class="category-bar"><i style="width:${Math.max(4,value/max*100)}%"></i></div></div>`).join(''):'<p class="summary-empty">尚無可統計的消費。</p>';
 
-  const payers=prototypeExpenses.filter(e=>e.payer && e.amount!==null).reduce((acc,e)=>{acc[e.payer]=(acc[e.payer]||0)+expenseTwd(e);return acc},{});
+  const payers=periodExpenses.filter(e=>e.payer && e.amount!==null).reduce((acc,e)=>{acc[e.payer]=(acc[e.payer]||0)+expenseTwd(e);return acc},{});
   const payerEntries=Object.entries(payers).filter(([,value])=>value>0).sort((a,b)=>b[1]-a[1]);
   const payerMax=Math.max(...payerEntries.map(([,value])=>value),1);
   document.getElementById('payerSummary').innerHTML=payerEntries.length?payerEntries.map(([name,value])=>`<div class="category-row"><div><b>${name}</b><span>NT$ ${numberText(value)}</span></div><div class="category-bar"><i style="width:${Math.max(4,value/payerMax*100)}%"></i></div></div>`).join(''):'<p class="summary-empty">尚無付款來源資料。</p>';
 }
 function setBudgetFilter(mode){
   budgetFilterMode=mode==='missing'?'missing':'all';
-  const phase=document.getElementById('expensePhaseFilter');if(phase)phase.value='all';
   renderBudget();
   document.getElementById('expenseList')?.scrollIntoView({behavior:'smooth',block:'start'});
 }

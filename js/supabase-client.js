@@ -115,6 +115,7 @@
     const countryCodes = {'台灣':'tw','臺灣':'tw','中國':'cn','中国':'cn','中華人民共和國':'cn','日本':'jp','韓國':'kr','南韓':'kr','大韓民國':'kr','泰國':'th','新加坡':'sg','馬來西亞':'my','越南':'vn','菲律賓':'ph','印尼':'id','英國':'gb','英國（UK）':'gb','GB':'gb','UK':'gb','United Kingdom':'gb','法國':'fr','德國':'de','義大利':'it','意大利':'it','西班牙':'es','美國':'us','加拿大':'ca','澳洲':'au','澳大利亞':'au','紐西蘭':'nz','新西蘭':'nz'};
     const countryNames = {'GB':'United Kingdom','UK':'United Kingdom','英國（UK）':'United Kingdom'};
     const aliases = [
+      [/九州動物園|九州自然動物公園|九州非洲野生動物園|African\s+Safari/iu, '九州自然動物公園 アフリカンサファリ, 大分県宇佐市安心院町南畑2-1755-1'],
       [/廣安[裏里]海灘|廣安[裏里]沙灘/u, 'Gwangalli Beach, Busan'],
       [/釜山海雲台|海雲台海灘/u, 'Haeundae Beach, Busan'],
       [/倫敦大[本笨]鐘|大[本笨]鐘|Big Ben/iu, 'Big Ben, London'],
@@ -154,7 +155,7 @@
       const response = await fetch(`https://nominatim.openstreetmap.org/search?${params}`);
       if (!response.ok) throw new Error('目前無法連線到地圖定位服務，請稍後再試。');
       const results = await response.json();
-      const matched = results.find(matchesJourneyCity);
+      const matched = normalized!==original&&index===0?results[0]:results.find(matchesJourneyCity);
       if (matched) return matched;
     }
     return null;
@@ -761,6 +762,7 @@
   function renderJourneyDays(rows){
     cachedDayRows=rows||[];
     window.currentJourneyDayOptions=cachedDayRows.map((row,index)=>({value:`Day ${index+1}`,date:row.day_date,id:row.id}));
+    window.syncExpensePhaseFilterOptions?.();
     const tabs=document.querySelector('.day-tabs-scroll'),info=document.querySelector('.journey-info-section');
     if(!tabs||!info)return;
     tabs.querySelectorAll('.day-tab[data-sortable-day]').forEach(node=>node.remove());
