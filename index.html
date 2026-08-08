@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.9">
+  <link rel="stylesheet" href="css/style.css?v=1.6.10">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -412,7 +412,7 @@
 
       <div class="field">
         <label class="label-with-help">代表地點（每個旅程一個 Pin）<button class="field-help-icon" id="pinLocationHelpButton" type="button" onclick="togglePinLocationHelp()" aria-label="展開定位使用說明" aria-expanded="false" aria-controls="pinLocationHelp">？</button></label>
-        <p class="field-inline-help" id="pinLocationHelp" hidden>請先將定位城市加入上方欄位並排在第一格，再輸入地標或地址。若仍找不到，請貼上「緯度, 經度」或完整 Plus Code。</p>
+        <p class="field-inline-help" id="pinLocationHelp" hidden>請先將定位城市加入上方欄位並排在第一格，再輸入地標或地址。Google 地圖複製的短 Plus Code 請保留後方地區文字，也可貼上經緯度或完整 Plus Code。</p>
         <input id="journeyPinPlace" value="東京鐵塔" placeholder="輸入景點、地址、經緯度或 Plus Code">
       </div>
 
@@ -631,8 +631,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.9"></script>
-  <script src="js/supabase-client.js?v=1.6.9"></script>
+  <script src="js/app.js?v=1.6.10"></script>
+  <script src="js/supabase-client.js?v=1.6.10"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.
@@ -929,6 +929,7 @@
     })();
   </script>
 
+  <button class="detail-quick-action" id="detailQuickAction" type="button" onclick="runDetailQuickAction()" aria-label="快速操作" hidden></button>
   <button class="back-to-top" type="button" onclick="scrollActiveViewToTop()" aria-label="回到頁面頂端" title="回到頂端">↑</button>
 
 </body>

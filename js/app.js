@@ -310,7 +310,31 @@ function showDay(day,button){
   document.querySelectorAll('.day-section').forEach(s=>s.classList.toggle('active',String(s.dataset.day)===String(day)));
   const addDayButton=document.querySelector('.empty-add-day');
   if(addDayButton)addDayButton.hidden=['info','budget'].includes(String(day));
+  requestAnimationFrame(updateDetailQuickAction);
 }
+
+function updateDetailQuickAction(){
+  const button=document.getElementById('detailQuickAction');
+  if(!button)return;
+  const detailActive=document.getElementById('detailView')?.classList.contains('active');
+  const infoActive=document.querySelector('.journey-info-section')?.classList.contains('active');
+  const budgetActive=document.querySelector('.budget-section')?.classList.contains('active');
+  const source=infoActive?document.querySelector('.journey-info-section .header-actions .header-action:not(.danger)'):budgetActive?document.querySelector('.budget-head .header-action'):null;
+  if(!detailActive||!source){button.hidden=true;return}
+  const rect=source.getBoundingClientRect();
+  button.hidden=rect.bottom>0&&rect.top<window.innerHeight;
+  button.dataset.action=budgetActive?'expense':'journey';
+  button.textContent=budgetActive?'＋':'✎';
+  button.setAttribute('aria-label',budgetActive?'新增費用':'編輯旅途');
+  button.title=budgetActive?'新增費用':'編輯旅途';
+}
+function runDetailQuickAction(){
+  const action=document.getElementById('detailQuickAction')?.dataset.action;
+  if(action==='expense')openExpenseModal();
+  if(action==='journey')editActiveJourney('modal-head');
+}
+window.updateDetailQuickAction=updateDetailQuickAction;
+window.runDetailQuickAction=runDetailQuickAction;
 function openExclusiveModal(id){document.querySelectorAll('.modal-backdrop.show').forEach(modal=>{if(modal.id!==id)modal.classList.remove('show')});document.getElementById(id)?.classList.add('show');document.body.classList.add('modal-open')}
 window.openExclusiveModal=openExclusiveModal;
 function openJourneyModal(){openExclusiveModal('journeyModal')}
@@ -439,6 +463,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   document.querySelectorAll('[data-home-view]').forEach(btn=>btn.addEventListener('click',()=>switchHomeView(btn.dataset.homeView,btn)));
   window.addEventListener('scroll',closeDayMenus,{passive:true,capture:true});
+  window.addEventListener('scroll',updateDetailQuickAction,{passive:true});
+  window.addEventListener('resize',updateDetailQuickAction,{passive:true});
   document.addEventListener('pointerdown',event=>{if(!event.target.closest('.day-menu'))closeDayMenus()});
   [['journeyRentalPickupAt','租車取車時間'],['journeyRentalReturnAt','租車還車時間']].forEach(([id,label])=>document.getElementById(id)?.addEventListener('change',event=>validateJourneyBoundedDate(event.target,label)));
   document.getElementById('detailHero').style.backgroundImage="url('https://images.unsplash.com/photo-1528360983277-13d401cdc186?auto=format&fit=crop&w=1600&q=85')";

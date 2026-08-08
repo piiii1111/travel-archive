@@ -1,5 +1,11 @@
 Travel Archive v1.6.0｜Supabase Connection
 
+v1.6.10 短 Plus Code 與浮動操作：
+- 支援直接貼上 Google 地圖的「MQFC+X4 中山里 宜蘭縣羅東鎮」短 Plus Code 格式。
+- 只有短碼時，會用 Journey 第一座城市補足地區參照。
+- 旅程資訊與費用頁向下滑離原操作鈕後，右下角顯示編輯或新增費用按鈕。
+- 本版本不需要執行新的 SQL。
+
 v1.6.9 定位與費用日期修正：
 - 代表地點可直接輸入完整 Google Maps Plus Code，於瀏覽器本機轉換成經緯度。
 - 找不到地標時，提示改為建議貼上經緯度或完整 Plus Code。

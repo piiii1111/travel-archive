@@ -236,15 +236,68 @@
     return { latitude, longitude, pin_address:`Plus Code ${token}` };
   }
 
+  function encodePlusCodePrefix(latitude, longitude, length) {
+    const alphabet = '23456789CFGHJMPQRVWX';
+    const resolutions = [20, 1, 0.05, 0.0025, 0.000125];
+    let lat = Math.min(89.999999, Math.max(-90, latitude)) + 90;
+    let lon = Math.min(179.999999, Math.max(-180, longitude)) + 180;
+    let code = '';
+    for (let index=0; index<Math.ceil(length/2); index+=1) {
+      const resolution = resolutions[index];
+      const latDigit = Math.floor(lat/resolution);
+      const lonDigit = Math.floor(lon/resolution);
+      code += alphabet[latDigit] + alphabet[lonDigit];
+      lat -= latDigit*resolution;
+      lon -= lonDigit*resolution;
+    }
+    return code.slice(0,length);
+  }
+
+  function recoverShortPlusCode(shortCode, referenceLatitude, referenceLongitude) {
+    const token = String(shortCode||'').toUpperCase().match(/[23456789CFGHJMPQRVWX]{2,7}\+[23456789CFGHJMPQRVWX]{2,7}/)?.[0];
+    if (!token) return null;
+    const separator = token.indexOf('+');
+    if (separator>=8 || separator%2!==0) return null;
+    const missing = 8-separator;
+    const recoveredToken = `${encodePlusCodePrefix(referenceLatitude,referenceLongitude,missing)}${token}`;
+    const decoded = parsePlusCode(recoveredToken);
+    if (!decoded) return null;
+    const resolution = Math.pow(20,2-missing/2);
+    if (decoded.latitude-referenceLatitude>resolution/2) decoded.latitude-=resolution;
+    else if (decoded.latitude-referenceLatitude<-resolution/2) decoded.latitude+=resolution;
+    if (decoded.longitude-referenceLongitude>resolution/2) decoded.longitude-=resolution;
+    else if (decoded.longitude-referenceLongitude<-resolution/2) decoded.longitude+=resolution;
+    decoded.pin_address=`Plus Code ${token}`;
+    return decoded;
+  }
+
+  async function resolveShortPlusCode(value, country, cities) {
+    const text = String(value||'').trim();
+    const token = text.match(/[23456789CFGHJMPQRVWX]{2,7}\+[23456789CFGHJMPQRVWX]{2,7}/i)?.[0];
+    if (!token || token.indexOf('+')>=8) return null;
+    const locality = text.replace(token,'').trim();
+    const references = [...new Set([locality,...(cities||[])].filter(Boolean))];
+    for (const reference of references) {
+      const result = await searchPlace(reference,country,cities);
+      if (result) {
+        const decoded = recoverShortPlusCode(token,Number(result.lat),Number(result.lon));
+        if (decoded) {
+          decoded.pin_address=`Plus Code ${token}${locality?` ${locality}`:''}`;
+          return decoded;
+        }
+      }
+    }
+    throw new Error('這是短 Plus Code，但缺少可用的地區參照。請保留 Google 地圖複製的地區文字，或先將定位城市放在第一格。');
+  }
+
   async function resolvePinLocation(place, country, cities) {
     if (!place) return { latitude:null, longitude:null, pin_address:'' };
     const directCoordinates = parseCoordinates(place);
     if (directCoordinates) return directCoordinates;
     const directPlusCode = parsePlusCode(place);
     if (directPlusCode) return directPlusCode;
-    if (/^[23456789CFGHJMPQRVWX]{2,7}\+[23456789CFGHJMPQRVWX]{2,}/i.test(place.trim())) {
-      throw new Error('這是需要地區參照的短 Plus Code。請從 Google 地圖複製完整 Plus Code（「+」前有 8 個字元）。');
-    }
+    const shortPlusCode = await resolveShortPlusCode(place,country,cities);
+    if (shortPlusCode) return shortPlusCode;
     let result = await searchPlace(place, country, cities);
     if (!result) {
       const address = prompt(`找不到「${place}」的地理位置。\n\n建議貼上「緯度, 經度」或完整 Plus Code（「+」前有 8 個字元）。`);
@@ -253,6 +306,8 @@
       if (fallbackCoordinates) return fallbackCoordinates;
       const fallbackPlusCode = parsePlusCode(address);
       if (fallbackPlusCode) return fallbackPlusCode;
+      const fallbackShortPlusCode = await resolveShortPlusCode(address,country,cities);
+      if (fallbackShortPlusCode) return fallbackShortPlusCode;
       result = await searchPlace(address.trim(), country, cities);
       if (!result) throw new Error(`仍然找不到「${address.trim()}」。請改貼經緯度或完整 Plus Code。`);
     }
