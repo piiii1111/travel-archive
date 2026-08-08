@@ -200,18 +200,61 @@
     return { latitude, longitude, pin_address:`${latitude}, ${longitude}` };
   }
 
+  function parsePlusCode(value) {
+    const alphabet = '23456789CFGHJMPQRVWX';
+    const text = String(value || '').trim().toUpperCase();
+    const token = text.match(/[23456789CFGHJMPQRVWX]{8}\+[23456789CFGHJMPQRVWX]{2,7}/)?.[0];
+    if (!token) return null;
+    const code = token.replace('+','');
+    if ([...code].some(character=>!alphabet.includes(character))) return null;
+    let latitude = -90;
+    let longitude = -180;
+    const pairResolution = [20, 1, 0.05, 0.0025, 0.000125];
+    const pairLength = Math.min(10, code.length) - (Math.min(10, code.length) % 2);
+    let latitudeResolution = 20;
+    let longitudeResolution = 20;
+    for (let index=0; index<pairLength; index+=2) {
+      const resolution = pairResolution[index/2];
+      latitude += alphabet.indexOf(code[index]) * resolution;
+      longitude += alphabet.indexOf(code[index+1]) * resolution;
+      latitudeResolution = longitudeResolution = resolution;
+    }
+    if (code.length > 10) {
+      latitudeResolution = 0.000125;
+      longitudeResolution = 0.000125;
+      for (let index=10; index<code.length; index+=1) {
+        const characterIndex = alphabet.indexOf(code[index]);
+        latitudeResolution /= 5;
+        longitudeResolution /= 4;
+        latitude += Math.floor(characterIndex/4) * latitudeResolution;
+        longitude += (characterIndex%4) * longitudeResolution;
+      }
+    }
+    latitude += latitudeResolution/2;
+    longitude += longitudeResolution/2;
+    if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return null;
+    return { latitude, longitude, pin_address:`Plus Code ${token}` };
+  }
+
   async function resolvePinLocation(place, country, cities) {
     if (!place) return { latitude:null, longitude:null, pin_address:'' };
     const directCoordinates = parseCoordinates(place);
     if (directCoordinates) return directCoordinates;
+    const directPlusCode = parsePlusCode(place);
+    if (directPlusCode) return directPlusCode;
+    if (/^[23456789CFGHJMPQRVWX]{2,7}\+[23456789CFGHJMPQRVWX]{2,}/i.test(place.trim())) {
+      throw new Error('這是需要地區參照的短 Plus Code。請從 Google 地圖複製完整 Plus Code（「+」前有 8 個字元）。');
+    }
     let result = await searchPlace(place, country, cities);
     if (!result) {
-      const address = prompt(`找不到「${place}」的地理位置。\n\n請輸入較完整的實際地址，例如：宜蘭縣羅東鎮民權路。`);
+      const address = prompt(`找不到「${place}」的地理位置。\n\n建議貼上「緯度, 經度」或完整 Plus Code（「+」前有 8 個字元）。`);
       if (!address?.trim()) throw new Error('尚未找到代表地點，旅程尚未儲存。');
       const fallbackCoordinates = parseCoordinates(address);
       if (fallbackCoordinates) return fallbackCoordinates;
+      const fallbackPlusCode = parsePlusCode(address);
+      if (fallbackPlusCode) return fallbackPlusCode;
       result = await searchPlace(address.trim(), country, cities);
-      if (!result) throw new Error(`仍然找不到「${address.trim()}」，請確認地址後再試一次。`);
+      if (!result) throw new Error(`仍然找不到「${address.trim()}」。請改貼經緯度或完整 Plus Code。`);
     }
     return { latitude:Number(result.lat), longitude:Number(result.lon), pin_address:result.display_name || '' };
   }

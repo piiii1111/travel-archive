@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;600;700&family=Noto+Serif+TC:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
-  <link rel="stylesheet" href="css/style.css?v=1.6.8">
+  <link rel="stylesheet" href="css/style.css?v=1.6.9">
   <style>
     /* v1.1.3: keep Journey Info and Budget visible above the date tabs */
     .days-nav{display:flex;flex-direction:column;align-items:stretch;gap:10px}
@@ -119,7 +119,7 @@
     </section>
 
     <section class="detail-view" id="detailView">
-      <div class="detail-hero has-cover" id="detailHero">
+      <div class="detail-hero has-cover" id="detailHero" onclick="if(event.target===this) editActiveJourney('journeyPhotoUpload')" title="點選封面照片可編輯">
         <button class="back-button" onclick="closeDetail()">← 回到首頁</button>
         <div class="eyebrow" id="detailEyebrow">Japan · Tokyo</div>
         <h1 id="detailTitle" role="button" tabindex="0" onclick="editActiveJourney('modal-head')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editActiveJourney('modal-head')}">東京六天五夜</h1>
@@ -412,13 +412,13 @@
 
       <div class="field">
         <label class="label-with-help">代表地點（每個旅程一個 Pin）<button class="field-help-icon" id="pinLocationHelpButton" type="button" onclick="togglePinLocationHelp()" aria-label="展開定位使用說明" aria-expanded="false" aria-controls="pinLocationHelp">？</button></label>
-        <p class="field-inline-help" id="pinLocationHelp" hidden>請先將定位城市加入上方欄位並排在第一格，再輸入地標或完整地址。若仍找不到，可在提示視窗直接輸入「緯度, 經度」。</p>
-        <input id="journeyPinPlace" value="東京鐵塔" placeholder="輸入景點、城市或地址">
+        <p class="field-inline-help" id="pinLocationHelp" hidden>請先將定位城市加入上方欄位並排在第一格，再輸入地標或地址。若仍找不到，請貼上「緯度, 經度」或完整 Plus Code。</p>
+        <input id="journeyPinPlace" value="東京鐵塔" placeholder="輸入景點、地址、經緯度或 Plus Code">
       </div>
 
       <div class="field">
         <label>旅程代表照片（每個旅程一張）</label>
-        <div class="journey-photo-upload">
+        <div class="journey-photo-upload" id="journeyPhotoUpload">
           <div class="journey-photo-preview" id="journeyPhotoPreview"><button class="journey-photo-remove" id="journeyPhotoRemove" type="button" onclick="removeJourneyCover()" aria-label="移除旅程代表照片" hidden>×</button></div>
           <div>
             <input id="journeyPhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
@@ -608,8 +608,9 @@
     <div class="modal-head"><h3 id="expenseModalTitle">新增費用</h3><button onclick="closeModal('expenseModal')">×</button></div>
     <div class="two-col">
       <div class="field"><label>消費階段</label><select id="expensePhase"><option value="pretrip">出發前</option><option value="local">旅行中</option><option value="posttrip">旅行後</option></select><small class="field-help">依日期自動判斷，仍可手動修改</small></div>
-      <div class="field"><label>所屬日程</label><select id="expenseDay" onchange="syncExpenseDateFromDay()"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select><small class="field-help">可選擇旅程 Day，或直接在下方自由選擇任何日期</small></div>
+      <div class="field"><label>所屬日期</label><select id="expenseDay" onchange="syncExpenseDateFromDay()"><option value="">未指定</option><option>Day 1</option><option>Day 2</option><option>Day 3</option><option>Day 4</option><option>Day 5</option><option>Day 6</option></select><small class="field-help">決定費用顯示在哪一個 Day；不會改變付款日期</small></div>
     </div>
+    <div class="field expense-payment-date"><label>付款日期</label><input id="expenseDate" type="date" onchange="autoAssignExpenseMeta()"><small class="field-help">可早於或晚於旅程日期，所屬 Day 不會跟著改變</small></div>
     <div class="two-col">
       <div class="field"><label>類別</label><div class="inline-add"><select id="expenseCategory"><option>機票</option><option>住宿</option><option>交通</option><option>餐飲</option><option>票券</option><option>購物</option><option>通信</option><option>保險</option><option>其他</option></select><button type="button" class="secondary" onclick="addExpenseMasterOption('expense_category','expenseCategory','費用類別')">＋ 新增</button></div></div>
       <div class="field"><label>項目</label><input id="expenseItem" placeholder="例如：名古屋港水族館門票"></div>
@@ -621,7 +622,6 @@
     </div>
     <div class="two-col">
       <div class="field"><label>付款來源</label><div class="inline-add"><select id="expensePayer"></select><button type="button" class="secondary" onclick="addExpenseMasterOption('payer','expensePayer','付款來源')">＋ 新增</button></div></div>
-      <div class="field"><label>日期</label><input id="expenseDate" type="date" onchange="autoAssignExpenseMeta()"><small class="field-help">依日期自動配對消費階段與 Day</small></div>
     </div>
     <div class="field"><label>備註</label><textarea id="expenseNote" rows="3" placeholder="刷卡、現金、費用內容或結算備註"></textarea></div>
     <div class="converted-preview"><span>換算台幣</span><strong id="expenseConvertedPreview">NT$ 0</strong></div><div class="modal-actions"><button class="secondary" onclick="closeModal('expenseModal')">取消</button><button class="primary" id="expenseSaveButton" onclick="addExpensePrototype()">新增費用</button></div>
@@ -631,8 +631,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/data.js"></script>
-  <script src="js/app.js?v=1.6.8"></script>
-  <script src="js/supabase-client.js?v=1.6.8"></script>
+  <script src="js/app.js?v=1.6.9"></script>
+  <script src="js/supabase-client.js?v=1.6.9"></script>
   <script>
     // v1.1.3 review controls: app.js v1.1.1 only included saveReview(),
     // so these two handlers are supplied here for prototype confirmation.

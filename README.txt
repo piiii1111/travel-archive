@@ -1,5 +1,12 @@
 Travel Archive v1.6.0｜Supabase Connection
 
+v1.6.9 定位與費用日期修正：
+- 代表地點可直接輸入完整 Google Maps Plus Code，於瀏覽器本機轉換成經緯度。
+- 找不到地標時，提示改為建議貼上經緯度或完整 Plus Code。
+- 點選 Journey Detail 封面背景可開啟編輯視窗並定位到照片上傳區。
+- 費用的「付款日期」與「所屬日期」正式分離；付款日不再覆蓋所屬 Day。
+- 本版本不需要執行新的 SQL。
+
 這個版本已完成：
 
 v1.6.0 費用資料庫階段：

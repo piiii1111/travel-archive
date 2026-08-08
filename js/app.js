@@ -670,8 +670,9 @@ function openExpenseModal(expenseId=null){
   document.getElementById('expenseSaveButton').textContent=expense?'儲存修改':'新增費用';
   const expenseDate=expense?.date||today;
   document.getElementById('expenseDate').value=expenseDate;
-  document.getElementById('expensePhase').value=expense?.phase||phaseFromDate(expenseDate);
-  document.getElementById('expenseDay').value=expense?.day||dayFromDate(expenseDate);
+  const expenseDay=expense?.day||dayFromDate(expenseDate);
+  document.getElementById('expenseDay').value=expenseDay;
+  document.getElementById('expensePhase').value=expenseDay?'local':(expense?.phase||phaseFromDate(expenseDate));
   document.getElementById('expenseCategory').value=expense?.category||masterData.category[0];
   document.getElementById('expenseItem').value=expense?.item||'';
   document.getElementById('expenseCurrency').value=expense?.currency||journeySettings.mainCurrency;
@@ -684,16 +685,12 @@ function openExpenseModal(expenseId=null){
 function autoAssignExpenseMeta(){
   const date=document.getElementById('expenseDate')?.value;
   const phase=document.getElementById('expensePhase'); const day=document.getElementById('expenseDay');
-  if(phase)phase.value=phaseFromDate(date);
-  if(day)day.value=dayFromDate(date);
+  if(phase)phase.value=day?.value?'local':phaseFromDate(date);
 }
 function syncExpenseDateFromDay(){
   const selected=document.getElementById('expenseDay')?.value;
-  if(!selected)return;
-  const option=(window.currentJourneyDayOptions||[]).find(item=>item.value===selected);
-  if(!option?.date)return;
-  const date=document.getElementById('expenseDate');if(date)date.value=option.date;
-  autoAssignExpenseMeta();
+  const phase=document.getElementById('expensePhase');
+  if(phase)phase.value=selected?'local':phaseFromDate(document.getElementById('expenseDate')?.value);
 }
 window.syncExpenseDateFromDay=syncExpenseDateFromDay;
 function toggleCustomRate(){
